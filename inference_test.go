@@ -27,7 +27,7 @@ func TestInference(t *testing.T) {
 					t.Error(v)
 				}
 				messages := v["messages"].([]any)
-				if !strings.Contains(messages[0].(map[string]any)["content"].(string), "English") {
+				if messages[0].(map[string]any)["content"] != "Respond in German." {
 					t.Error(messages)
 				}
 				w.Header().Set("Content-Type", "text/event-stream")
@@ -36,7 +36,6 @@ func TestInference(t *testing.T) {
 			defer srv.Close()
 			a := &App{cfg: Config{Endpoint: srv.URL, Quick: map[string]any{"reasoning_effort": "none"}}, client: srv.Client()}
 			c := fixture()
-			c.Language = "en"
 			var output string
 			err := a.infer(context.Background(), c, func(s string) error { output += s; return nil })
 			if (err == nil) != tc.ok {

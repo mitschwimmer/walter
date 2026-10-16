@@ -25,6 +25,7 @@ var assets embed.FS
 
 type Config struct {
 	Listen, PublicURL, Issuer, ClientID, ClientSecret, DataDir, Endpoint, Model string
+	ImprintURL, PrivacyURL                                                      string
 	Groups                                                                      []string
 	Quick, Thoughtful                                                           map[string]any
 	GenerationTimeout, SessionTTL                                               time.Duration
@@ -54,6 +55,16 @@ func clientSecret() (string, error) {
 func config() (Config, error) {
 	c := Config{Listen: env("WALTER_LISTEN", "127.0.0.1:8080"), PublicURL: os.Getenv("WALTER_PUBLIC_URL"), Issuer: os.Getenv("WALTER_OIDC_ISSUER"), ClientID: os.Getenv("WALTER_OIDC_CLIENT_ID"), ClientSecret: "", DataDir: env("WALTER_DATA_DIR", "data"), Endpoint: os.Getenv("WALTER_LLAMA_ENDPOINT"), Model: os.Getenv("WALTER_MODEL"), Groups: strings.Split(env("WALTER_ALLOWED_GROUPS", "walter-users"), ","), GenerationTimeout: 2 * time.Hour, SessionTTL: 12 * time.Hour, MaxHistory: 48000, MaxOutput: 4096}
 	var err error
+	c.ImprintURL, c.PrivacyURL = os.Getenv("WALTER_IMPRINT_URL"), os.Getenv("WALTER_PRIVACY_URL")
+	for _, value := range []struct{ key, url string }{{"WALTER_IMPRINT_URL", c.ImprintURL}, {"WALTER_PRIVACY_URL", c.PrivacyURL}} {
+		if value.url == "" {
+			continue
+		}
+		u, err := url.Parse(value.url)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+			return c, fmt.Errorf("%s must be an HTTPS URL", value.key)
+		}
+	}
 	c.ClientSecret, err = clientSecret()
 	if err != nil {
 		return c, err
@@ -163,6 +174,9 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 }
 func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/site", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]string{"imprint_url": a.cfg.ImprintURL, "privacy_url": a.cfg.PrivacyURL})
+	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /auth/login", a.auth.login)
 	mux.HandleFunc("GET /auth/callback", a.auth.callback)
@@ -219,18 +233,19 @@ func (a *App) list(w http.ResponseWriter, r *http.Request, u string) {
 }
 func (a *App) create(w http.ResponseWriter, r *http.Request, u string) {
 	var v struct {
+		// Accept legacy clients; all new replies are German regardless of this field.
 		Language string `json:"language"`
 		Thinking string `json:"thinking"`
 	}
 	if !decode(w, r, &v) {
 		return
 	}
-	if (v.Language != "de" && v.Language != "en") || (v.Thinking != "quick" && v.Thinking != "thoughtful") {
-		problem(w, 400, "Sprache oder Denkmodus ungültig.")
+	if v.Thinking != "quick" && v.Thinking != "thoughtful" {
+		problem(w, 400, "Denkmodus ungültig.")
 		return
 	}
 	now := time.Now().UTC()
-	c := &Conversation{ID: opaqueID(), Title: "Neuer Chat", Language: v.Language, Thinking: v.Thinking, Model: a.cfg.Model, Created: now, Updated: now, Messages: []Message{}}
+	c := &Conversation{ID: opaqueID(), Title: "Neue Frage", Thinking: v.Thinking, Model: a.cfg.Model, Created: now, Updated: now, Messages: []Message{}}
 	if err := a.store.Save(u, c); err != nil {
 		logFailure(r.Context(), "create_conversation", err)
 		problem(w, 500, "Chat konnte nicht gespeichert werden.")

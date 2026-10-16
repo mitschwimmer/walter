@@ -10,7 +10,7 @@ import (
 )
 
 func fixture() *Conversation {
-	return &Conversation{ID: opaqueID(), Title: "Test", Language: "de", Thinking: "quick", Model: "test", Created: time.Now().UTC(), Updated: time.Now().UTC(), Messages: []Message{}}
+	return &Conversation{ID: opaqueID(), Title: "Test", Thinking: "quick", Model: "test", Created: time.Now().UTC(), Updated: time.Now().UTC(), Messages: []Message{}}
 }
 func TestStoreOwnershipAtomicRecovery(t *testing.T) {
 	s := &Store{root: t.TempDir()}
