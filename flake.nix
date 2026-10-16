@@ -14,7 +14,7 @@
         pname = "walter";
         version = "0.1.0";
         src = pkgs.lib.cleanSource ./.;
-        vendorHash = "sha256-Sv8ELSn9oNNdj+LSOTiVR4fVt/POrMXxUmAINbsrrPo=";
+        vendorHash = "sha256-sbU1ptUcHexY1CZ7UahJiGtlF4ZL/8xAtbvLN+b/Lqg=";
         env.CGO_ENABLED = "0";
         subPackages = [ "." ];
         ldflags = [

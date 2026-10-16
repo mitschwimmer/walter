@@ -212,9 +212,8 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	defer cancel()
 	reply := &c.Messages[len(c.Messages)-1]
 	if err = event(w, "start", map[string]string{"message_id": reply.ID}); err == nil {
-		err = a.infer(ctx, c, func(text string) error {
-			reply.Content += text
-			return event(w, "delta", map[string]string{"text": text})
+		err = a.streamReply(ctx, c, reply, func(html string) error {
+			return event(w, "snapshot", map[string]string{"html": html})
 		})
 	}
 	reply.Status = "complete"

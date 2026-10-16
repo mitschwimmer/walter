@@ -29,3 +29,22 @@ infrastructure checkout, runtime configuration and host access; see deploy/READM
 
 OCI build/publish is validated by the GitHub Actions workflow; Docker is not
 available in the local implementation workspace.
+
+## Streaming Markdown (2026-10-16)
+
+Validated with Go 1.25.3 on linux/amd64:
+
+- `go test ./...`, `go vet ./...` and `go test -race ./...` passed.
+- `CGO_ENABLED=0 go build -trimpath` passed.
+- `go mod verify`, `node tests/sse.test.mjs` and JavaScript module syntax checks passed.
+- Added coverage for headings, emphasis, links, lists, quotes, tables, code fences,
+  unfinished Markdown, raw HTML and unsafe URL rejection. HTTP integration tests
+  check final snapshots on success and upstream failure, identical reopened HTML,
+  plain user content and Markdown-only persistence. A paused upstream test checks
+  timer flushing and reader cancellation when the client write fails. Existing
+  disconnect and final-save failure tests continue to pass.
+- Updated `vendorHash` from the NAR SHA-256 of `go mod vendor` output. Verified
+  the same calculation reproduces the previous dependency hash exactly.
+
+Not run: a full Nix build (Nix is unavailable), browser visual/interaction checks
+(Chromium is unavailable and the browser download failed), or live inference.

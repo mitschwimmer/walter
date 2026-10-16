@@ -32,8 +32,8 @@ through native Nix/Go tools when changing their respective inputs.
 
 The OCI workflow remains the deployment path; the Nix package is an additional
 native release artifact. For other environments, Go 1.25 or newer is required.
-The runtime uses go-oidc and oauth2; signed-token tests also use go-jose.
-all dependencies are pinned by `go.mod` and `go.sum` and work without CGo.
+The runtime uses go-oidc, oauth2 and Goldmark; signed-token tests also use go-jose.
+All dependencies are pinned by `go.mod` and `go.sum` and work without CGo.
 
 ```sh
 CGO_ENABLED=0 go test ./...
@@ -111,15 +111,21 @@ alias no longer matches configuration.
 - Restart marks pending placeholders failed. In-flight tokens since the initial
   commit are lost on a crash. Sessions and OIDC flows are intentionally in memory;
   restarting signs users out, while conversations persist.
-- SSE `start` identifies the assistant message; `delta` carries answer text;
+- SSE `start` identifies the assistant message; `snapshot` carries the full
+  rendered reply in its `html` field, immediately for the first text and about
+  every 100 ms thereafter while text changes, including during upstream pauses.
+  Remaining text is flushed before completion or upstream failure;
   `done` means a complete reply was saved and synced. `error` is controlled,
   contains no upstream body or prompt. Delivery of `done` can itself fail after
   persistence; reopening the chat is authoritative. If persistence fails after
   generation, the pending record remains; inspect storage and restart recovery.
 - A lost network response can leave submission acceptance uncertain. The browser
   never automatically retries a message; reopen the chat before resubmitting.
-- Model output is plain text through `textContent`, with no HTML or Markdown
-  execution. History is sorted by most recent activity.
+- Assistant Markdown is rendered by Goldmark on the server, including tables,
+  code blocks, headings, lists and links. Raw HTML, custom attributes and unsafe
+  URLs stay disabled. Streaming and reopened replies use the same renderer;
+  only original Markdown is stored and sent back to inference. User messages
+  remain plain text. History is sorted by most recent activity.
 
 ## Authentication and trust
 
