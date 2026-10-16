@@ -1,3 +1,4 @@
+# CI overrides the build context with cached, tested output; local builds use this stage.
 FROM golang:1.25.3-bookworm AS build
 WORKDIR /src
 ENV CGO_ENABLED=0
