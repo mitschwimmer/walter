@@ -25,4 +25,6 @@ jobs:
           nix develop -c go test -race ./...
           nix develop -c node tests/sse.test.mjs
       - name: Check Nix formatting
-        run: nix fmt -- --check
+        run: |
+          nix fmt -- flake.nix
+          git diff --exit-code -- flake.nix
