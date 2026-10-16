@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +43,7 @@ func TestClientSecretFile(t *testing.T) {
 	}
 	t.Setenv("WALTER_OIDC_CLIENT_SECRET", "")
 	t.Setenv("WALTER_OIDC_CLIENT_SECRET_FILE", path+".missing")
-	if _, err := clientSecret(); err == nil {
-		t.Fatal("missing secret file accepted")
+	if _, err := clientSecret(); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("missing secret file cause not preserved")
 	}
 }

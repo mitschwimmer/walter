@@ -6,7 +6,33 @@ frontend build step. Inference is accessible only through the backend.
 
 ## Build and test
 
-Go 1.25 or newer is required. The only direct dependencies are go-oidc and oauth2;
+On NixOS, use the pinned development environment:
+
+```fish
+nix develop -c fish
+hx .
+go test ./...
+go test -race ./...
+go vet ./...
+node tests/sse.test.mjs
+```
+
+The shell provides Go, gopls, Helix, Fish, SOPS/age, Node for parser tests, and
+GCC for the race detector. `GOTOOLCHAIN=local` keeps the compiler under Nix
+control. Go owns module dependencies and the interactive edit/test loop.
+Keep private age keys outside Git and decrypt secrets only at runtime, for
+example with `sops exec-env` or `sops exec-file`; Nix never decrypts them.
+
+Build the release package with `nix build`; the binary is `result/bin/walter`.
+`nix flake check` explicitly builds that package and runs its CGo-free Go tests
+and vet checks. The Nix CI job also checks the dev shell, race detector, browser
+parser and Nix formatting. `flake.lock` pins nixpkgs; `vendorHash` pins the
+vendored module closure without committing a vendor directory. Update both
+through native Nix/Go tools when changing their respective inputs.
+
+The OCI workflow remains the deployment path; the Nix package is an additional
+native release artifact. For other environments, Go 1.25 or newer is required.
+The runtime uses go-oidc and oauth2; signed-token tests also use go-jose.
 all dependencies are pinned by `go.mod` and `go.sum` and work without CGo.
 
 ```sh
@@ -129,3 +155,11 @@ to `main`, plus immutable `sha-<full-commit>` tags. Version tags (`v*`) also
 publish that version tag. Pull requests run tests and build without publishing.
 Images currently target `linux/amd64`. Pin the published image **digest** for
 installation; the workflow summary records it. See [deployment](deploy/README.md).
+
+## Diagnostics
+
+Failures are logged once where handled, with a fixed operation name, cause type,
+filesystem errno or upstream HTTP status where available. Arbitrary upstream
+error strings, response bodies, URLs, credentials and conversation text are
+excluded. Browser error messages remain controlled. Configuration-file and OIDC
+discovery failures preserve wrapped causes internally for error classification.

@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -42,7 +42,7 @@ func newAuth(c Config) (*Auth, error) {
 	ctx := oidc.ClientContext(context.Background(), &http.Client{Timeout: 30 * time.Second})
 	p, err := oidc.NewProvider(ctx, c.Issuer)
 	if err != nil {
-		return nil, errors.New("OIDC discovery failed")
+		return nil, fmt.Errorf("discover OIDC provider: %w", err)
 	}
 	endpoint := p.Endpoint()
 	endpoint.AuthStyle = oauth2.AuthStyleInHeader
@@ -97,6 +97,7 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 	ctx := context.WithValue(r.Context(), oauth2.HTTPClient, a.ctx.Value(oauth2.HTTPClient))
 	t, err := a.oauth.Exchange(ctx, r.URL.Query().Get("code"), oauth2.VerifierOption(flow.Verifier))
 	if err != nil {
+		logFailure(ctx, "exchange_oidc_code", err)
 		problem(w, 401, "Anmeldung fehlgeschlagen.")
 		return
 	}
@@ -107,6 +108,9 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := a.verifier.Verify(ctx, raw)
 	if err != nil || id.Subject == "" || subtle.ConstantTimeCompare([]byte(id.Nonce), []byte(flow.Nonce)) != 1 {
+		if err != nil {
+			logFailure(ctx, "verify_oidc_identity", err)
+		}
 		problem(w, 401, "Identität ungültig.")
 		return
 	}

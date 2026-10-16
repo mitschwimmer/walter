@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -48,7 +47,7 @@ func clientSecret() (string, error) {
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", errors.New("cannot read OIDC client secret file")
+		return "", fmt.Errorf("read OIDC client secret file: %w", err)
 	}
 	return strings.TrimRight(string(b), "\r\n"), nil
 }
@@ -212,6 +211,7 @@ func (a *App) api(next func(http.ResponseWriter, *http.Request, string)) http.Ha
 func (a *App) list(w http.ResponseWriter, r *http.Request, u string) {
 	cs, err := a.store.List(u)
 	if err != nil {
+		logFailure(r.Context(), "list_conversations", err)
 		problem(w, 500, "Chats konnten nicht geladen werden.")
 		return
 	}
@@ -232,6 +232,7 @@ func (a *App) create(w http.ResponseWriter, r *http.Request, u string) {
 	now := time.Now().UTC()
 	c := &Conversation{ID: opaqueID(), Title: "Neuer Chat", Language: v.Language, Thinking: v.Thinking, Model: a.cfg.Model, Created: now, Updated: now, Messages: []Message{}}
 	if err := a.store.Save(u, c); err != nil {
+		logFailure(r.Context(), "create_conversation", err)
 		problem(w, 500, "Chat konnte nicht gespeichert werden.")
 		return
 	}
@@ -240,7 +241,7 @@ func (a *App) create(w http.ResponseWriter, r *http.Request, u string) {
 func (a *App) get(w http.ResponseWriter, r *http.Request, u string) {
 	c, err := a.store.Get(u, r.PathValue("id"))
 	if err != nil {
-		a.storeError(w, err)
+		a.storeError(w, r, err)
 		return
 	}
 	writeJSON(w, 200, c)
@@ -252,37 +253,40 @@ func (a *App) remove(w http.ResponseWriter, r *http.Request, u string) {
 	}
 	defer a.release(u)
 	if err := a.store.Delete(u, r.PathValue("id")); err != nil {
-		a.storeError(w, err)
+		a.storeError(w, r, err)
 		return
 	}
 	w.WriteHeader(204)
 }
-func (a *App) storeError(w http.ResponseWriter, err error) {
+func (a *App) storeError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, errMissing) {
 		problem(w, 404, "Chat nicht gefunden.")
 	} else {
+		logFailure(r.Context(), "access_conversation", err)
 		problem(w, 500, "Speicherfehler.")
 	}
 }
 func main() {
 	if err := run(); err != nil {
-		slog.Error("startup failed", "error", err)
 		os.Exit(1)
 	}
 }
 func run() error {
 	cfg, err := config()
 	if err != nil {
+		logFailure(context.Background(), "load_configuration", err)
 		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	auth, err := newAuth(cfg)
 	if err != nil {
+		logFailure(ctx, "discover_oidc_provider", err)
 		return err
 	}
 	store := &Store{root: cfg.DataDir}
 	if err = store.Recover(); err != nil {
+		logFailure(ctx, "recover_conversations", err)
 		return err
 	}
 	a := &App{cfg: cfg, store: store, auth: auth, client: &http.Client{Timeout: cfg.GenerationTimeout}, active: map[string]bool{}}
@@ -294,10 +298,15 @@ func run() error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
+		logFailure(ctx, "listen_http", err)
 		return err
 	case <-ctx.Done():
 		shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		return srv.Shutdown(shutdown)
+		if err := srv.Shutdown(shutdown); err != nil {
+			logFailure(shutdown, "shutdown_http", err)
+			return err
+		}
+		return nil
 	}
 }

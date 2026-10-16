@@ -1,0 +1,30 @@
+name: Nix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      - name: Check pinned package and Go tests
+        run: nix flake check --no-update-lock-file --print-build-logs
+      - name: Check development shell and race detector
+        run: |
+          nix develop -c go test -race ./...
+          nix develop -c node tests/sse.test.mjs
+      - name: Check Nix formatting
+        run: |
+          nix fmt -- flake.nix
+          git diff --exit-code -- flake.nix

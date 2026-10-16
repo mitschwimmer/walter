@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -54,11 +55,15 @@ func TestOIDCFlow(t *testing.T) {
 					}
 					signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: jose.JSONWebKey{Key: key, KeyID: "test"}}, nil)
 					if err != nil {
-						t.Fatal(err)
+						t.Error(err)
+						http.Error(w, "token signing failed", http.StatusInternalServerError)
+						return
 					}
 					signed, err := jwt.Signed(signer).Claims(jwt.Claims{Issuer: issuer, Subject: "alice", Audience: jwt.Audience{tc.audience}, Expiry: jwt.NewNumericDate(exp), IssuedAt: jwt.NewNumericDate(time.Now())}).Claims(map[string]any{"nonce": n, "groups": []string{tc.group}}).Serialize()
 					if err != nil {
-						t.Fatal(err)
+						t.Error(err)
+						http.Error(w, "token signing failed", http.StatusInternalServerError)
+						return
 					}
 					writeJSON(w, 200, map[string]any{"access_token": "access", "token_type": "Bearer", "id_token": signed, "expires_in": 3600})
 				default:
@@ -145,5 +150,15 @@ func TestLoginStateAndSessionExpiry(t *testing.T) {
 	var data any
 	if json.Unmarshal(w.Body.Bytes(), &data) != nil {
 		t.Fatal("expected controlled error")
+	}
+}
+
+func TestDiscoveryPreservesCause(t *testing.T) {
+	provider := httptest.NewServer(http.NotFoundHandler())
+	provider.Close()
+	_, err := newAuth(Config{Issuer: provider.URL})
+	var cause *url.Error
+	if !errors.As(err, &cause) || !strings.Contains(err.Error(), "discover OIDC provider") {
+		t.Fatal("discovery failure did not preserve its network cause and context")
 	}
 }
