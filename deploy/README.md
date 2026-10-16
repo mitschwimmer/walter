@@ -3,7 +3,13 @@
 The image is `ghcr.io/mitschwimmer/walter`. GitHub Actions publishes it after tests
 pass on `main` and version tags. Inspect the Actions run summary for the accepted
 image digest and pin `ghcr.io/mitschwimmer/walter@sha256:...` in deployment.
-Images currently target linux/amd64. The container runs a static Go binary as
+Each publishing run also uploads a `walter-image` artifact containing
+`image.lock.json` (repository, digest, source revision, platform and run URL).
+The Digital Garden updater consumes this record from a successful main push.
+CI restores Go module/build caches and compiles once on the runner; a named
+Docker build context supplies that tested output to the same runtime Dockerfile.
+Superseded runs are cancelled. Plain `docker build .` remains a standalone
+source build. Images currently target linux/amd64. The container runs a static Go binary as
 UID/GID 65532, includes public CA trust for outbound OIDC HTTPS, and has no shell.
 
 ## Runtime contract
