@@ -58,6 +58,10 @@ func consumeSSE(r io.Reader, consume func(string) error) error {
 
 var errDone = errors.New("stream complete")
 
+type upstreamStatusError struct{ status int }
+
+func (e *upstreamStatusError) Error() string { return fmt.Sprintf("inference status %d", e.status) }
+
 func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) error) error {
 	language := "Respond in German."
 	if c.Language == "en" {
@@ -93,7 +97,7 @@ func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("inference status %d", resp.StatusCode)
+		return &upstreamStatusError{status: resp.StatusCode}
 	}
 	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
 		return errors.New("inference did not return SSE")
@@ -173,7 +177,7 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	defer a.release(u)
 	c, err := a.store.Get(u, r.PathValue("id"))
 	if err != nil {
-		a.storeError(w, err)
+		a.storeError(w, r, err)
 		return
 	}
 	n := len(input.Content)
@@ -198,6 +202,7 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	c.Messages = append(c.Messages, Message{opaqueID(), "user", input.Content, "complete"}, Message{opaqueID(), "assistant", "", "pending"})
 	c.Updated = time.Now().UTC()
 	if err = a.store.Save(u, c); err != nil {
+		logFailure(r.Context(), "save_submission", err)
 		problem(w, 500, "Nachricht konnte nicht gespeichert werden.")
 		return
 	}
@@ -223,10 +228,14 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	}
 	c.Updated = time.Now().UTC()
 	if saveErr := a.store.Save(u, c); saveErr != nil {
+		logFailure(r.Context(), "save_reply", saveErr)
 		_ = event(w, "error", map[string]string{"error": "Antwort konnte nicht gespeichert werden. Bitte Chat neu laden."})
 		return
 	}
 	if err != nil {
+		if r.Context().Err() == nil {
+			logFailure(r.Context(), "generate_reply", err)
+		}
 		_ = event(w, "error", map[string]string{"error": "Antwort unterbrochen. Bitte erneut versuchen.", "status": reply.Status})
 		return
 	}
