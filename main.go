@@ -244,7 +244,13 @@ func (a *App) get(w http.ResponseWriter, r *http.Request, u string) {
 		a.storeError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, c)
+	view, err := renderConversation(c)
+	if err != nil {
+		logFailure(r.Context(), "render_conversation", err)
+		problem(w, 500, "Chat konnte nicht dargestellt werden.")
+		return
+	}
+	writeJSON(w, 200, view)
 }
 func (a *App) remove(w http.ResponseWriter, r *http.Request, u string) {
 	if !a.reserve(u) {

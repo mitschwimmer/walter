@@ -23,7 +23,8 @@ export async function readEvents(body, onEvent) {
       for (const ch of text) {
         if (afterCR) { afterCR = false; if (ch === '\n') continue; }
         if (ch === '\r' || ch === '\n') { line(buffer); buffer = ''; afterCR = ch === '\r'; }
-        else { buffer += ch; if (buffer.length > 2 ** 20) throw new Error('Antwort zu groß.'); }
+        // Full HTML snapshots can grow beyond the 1 MiB source limit after JSON escaping.
+        else { buffer += ch; if (buffer.length > 32 * 2 ** 20) throw new Error('Antwort zu groß.'); }
       }
       if (done) { if (buffer || data.length) throw new Error('Antwort unvollständig.'); return; }
     }

@@ -12,3 +12,11 @@ for (let size = 1; size <= bytes.length; size++) {
 }
 await assert.rejects(readEvents(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('data: {}')); c.close(); } }), () => {}), /unvollständig/);
 console.log('SSE parser: all chunk sizes, UTF-8, CRLF, multiline and incomplete frames passed');
+
+// HTML snapshots replace the full reply and can exceed the old delta frame limit.
+const html = '<p>' + '&lt;'.repeat(300000) + '</p>';
+const snapshot = new TextEncoder().encode('event: snapshot\ndata: ' + JSON.stringify({ html }) + '\n\nevent: done\ndata: {}\n\n');
+const received = [];
+await readEvents(new ReadableStream({ start(c) { c.enqueue(snapshot); c.close(); } }), (...event) => received.push(event));
+assert.deepEqual(received, [['snapshot', { html }], ['done', {}]]);
+console.log('SSE parser: large HTML snapshot passed');

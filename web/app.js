@@ -12,10 +12,13 @@ async function api(path, options = {}) {
 function bubble(m) {
   const section = document.createElement('section'); section.className = `message ${m.role}`;
   const heading = document.createElement('h2'); heading.textContent = m.role === 'user' ? 'Du' : 'Walter';
-  const p = document.createElement('p'); p.textContent = m.content;
-  section.append(heading, p);
+  const body = document.createElement('div'); body.className = 'message-content';
+  // HTML is produced only by the backend's restricted Markdown renderer.
+  if (m.role === 'assistant' && typeof m.html === 'string') body.innerHTML = m.html;
+  else body.textContent = m.content;
+  section.append(heading, body);
   if (m.status !== 'complete') { const status = document.createElement('small'); status.textContent = { pending: 'Wird erstellt …', partial: 'Unvollständige Antwort', cancelled: 'Abgebrochen', failed: 'Fehlgeschlagen' }[m.status]; section.append(status); }
-  $('messages').append(section); return p;
+  $('messages').append(section); return body;
 }
 function show(c) {
   current = c; $('title').textContent = c.title;
@@ -52,19 +55,18 @@ $('composer').onsubmit = async e => {
   e.preventDefault(); if (!current || controller) return;
   const text = $('content').value.trim(); if (!text) return;
   clearError(); controller = new AbortController(); busy(true);
-  let accepted = false, complete = false, frame = 0, output = '', target;
+  let accepted = false, complete = false, target;
   try {
     const response = await api(`/api/conversations/${current.id}/messages`, { method: 'POST', body: JSON.stringify({ content: text }), signal: controller.signal });
     accepted = true; $('content').value = ''; bubble({ role: 'user', content: text, status: 'complete' }); target = bubble({ role: 'assistant', content: '', status: 'pending' });
     await readEvents(response.body, (name, data) => {
-      if (name === 'delta') { output += data.text; if (!frame) frame = requestAnimationFrame(() => { target.textContent = output; frame = 0; }); }
+      if (name === 'snapshot') { target.innerHTML = data.html; }
       else if (name === 'error') throw new Error(data.error);
       else if (name === 'done') complete = true;
     });
     if (!complete) throw new Error('Verbindung unterbrochen. Chat erneut öffnen.');
   } catch (e) { if (e.name !== 'AbortError') error(e); }
   finally {
-    if (frame) cancelAnimationFrame(frame); if (target) target.textContent = output;
     controller = null; busy(false);
     if (accepted) {
       // Cancellation closes the browser stream before the server commits. Poll
