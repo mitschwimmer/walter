@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Walter</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
+<body>
+<header><a class="brand" href="/">Walter</a><button id="logout" hidden>Abmelden</button></header>
+<section id="login" hidden><h1>Raum für Gedanken.</h1><p>Deine Gespräche, an einem Ort.</p><a class="primary" href="/auth/login">Mit Kanidm anmelden</a></section>
+<div id="workspace" hidden><aside aria-label="Gespräche"><button id="new" class="primary">＋ Neuer Chat</button><nav id="chats" aria-label="Bisherige Chats"></nav></aside>
+<main><div class="chat-heading"><div><h1 id="title">Ein neuer Gedanke?</h1><p id="meta">Starte einen Chat auf Deutsch oder Englisch.</p></div><button id="delete" hidden>Chat löschen</button></div>
+<div id="messages" role="log" aria-label="Nachrichten" aria-live="off"></div>
+<form id="composer"><label for="content">Nachricht</label><textarea id="content" rows="3" maxlength="16000" placeholder="Was möchtest du wissen?" required disabled></textarea><div class="composer-actions"><span id="activity" role="status"></span><button id="stop" type="button" hidden>Antwort stoppen</button><button id="send" class="primary" disabled>Senden</button></div></form>
+</main></div>
+<p id="error" role="alert" hidden></p>
+<dialog id="create"><form id="create-form"><h2>Neuer Chat</h2><fieldset><legend>Denkmodus</legend><label><input type="radio" name="thinking" value="quick" checked> Schnell</label><label><input type="radio" name="thinking" value="thoughtful"> Gründlich</label></fieldset><fieldset><legend>Sprache</legend><label><input type="radio" name="language" value="de" checked> Deutsch</label><label><input type="radio" name="language" value="en"> Englisch</label></fieldset><div class="dialog-actions"><button id="close" type="button">Abbrechen</button><button class="primary">Chat starten</button></div></form></dialog>
+</body></html>

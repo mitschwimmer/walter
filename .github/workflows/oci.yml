@@ -1,0 +1,74 @@
+name: Test and publish Walter
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: walter-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test browser SSE parser
+        run: node tests/sse.test.mjs
+      - name: Build and test static OCI image
+        env:
+          WALTER_REVISION: ${{ github.sha }}
+          WALTER_VERSION: ${{ github.ref_name }}
+        run: |
+          docker build --platform linux/amd64 \
+            --build-arg REVISION="$WALTER_REVISION" \
+            --build-arg VERSION="$WALTER_VERSION" \
+            --tag walter:ci .
+      - name: Authenticate to GHCR
+        if: github.event_name != 'pull_request'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+      - name: Publish image
+        if: github.event_name != 'pull_request'
+        env:
+          WALTER_REPOSITORY: ${{ github.repository }}
+          WALTER_REVISION: ${{ github.sha }}
+          WALTER_REF: ${{ github.ref }}
+          WALTER_REF_NAME: ${{ github.ref_name }}
+        run: |
+          image="ghcr.io/${WALTER_REPOSITORY,,}"
+          immutable_tag="sha-$WALTER_REVISION"
+          docker tag walter:ci "$image:$immutable_tag"
+          docker push "$image:$immutable_tag"
+          if [[ "$WALTER_REF" == refs/heads/main ]]; then
+            docker tag walter:ci "$image:latest"
+            docker push "$image:latest"
+          elif [[ "$WALTER_REF" == refs/tags/v* ]]; then
+            docker tag walter:ci "$image:$WALTER_REF_NAME"
+            docker push "$image:$WALTER_REF_NAME"
+          fi
+          digest_ref="$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$immutable_tag")"
+          {
+            echo '### Walter OCI image'
+            echo
+            echo "Commit tag: \`$image:$immutable_tag\`"
+            echo
+            echo "Install by digest: \`$digest_ref\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Logout of GHCR
+        if: always() && github.event_name != 'pull_request'
+        run: docker logout ghcr.io
