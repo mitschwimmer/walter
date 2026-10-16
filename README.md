@@ -33,7 +33,8 @@ before the HTTP server finishes shutdown.
 | `WALTER_PUBLIC_URL` | Required public HTTPS origin, no path, e.g. `https://walter.example.com` (proposed hostname) |
 | `WALTER_OIDC_ISSUER` | Required, use the exact discovery `issuer` for the dedicated Kanidm client |
 | `WALTER_OIDC_CLIENT_ID` | Required, dedicated client, e.g. `walter` |
-| `WALTER_OIDC_CLIENT_SECRET` | Required secret, delivered at runtime |
+| `WALTER_OIDC_CLIENT_SECRET` | Runtime secret; use this or the file setting, never both |
+| `WALTER_OIDC_CLIENT_SECRET_FILE` | Path to a mounted secret file; preferred for OCI |
 | `WALTER_ALLOWED_GROUPS` | `walter-users`, exact comma-separated claim values |
 | `WALTER_MODEL` | Required model alias verified in the inference catalog |
 | `WALTER_QUICK_JSON` | Required nonempty JSON object of verified model settings |

@@ -25,12 +25,13 @@ backends on both IPv4 and IPv6. Do not publish app port 8080 directly. The image
 needs no GPU devices; inference runs in a separate service. Container UID/GID
 mapping must make the mounted directory writable to UID 65532.
 
-Use your infrastructure's supported runtime secret delivery to supply
-`WALTER_OIDC_CLIENT_SECRET`. Keep it out of Git, image layers and infrastructure
-state. The app currently reads configuration from environment variables; select a
-runtime that can inject that secret safely. If direct OCI deployment cannot meet
-that requirement, use the static binary in a NixOS service with a runtime secret
-EnvironmentFile instead. Never put a client secret in public image arguments.
+Mount the OIDC client secret as a read-only file owned/readable by UID 65532,
+mode 0400, and set `WALTER_OIDC_CLIENT_SECRET_FILE` to its container path, e.g.
+`/run/secrets/walter-oidc`. The app reads it at startup; restart after rotation.
+Only the path belongs in public container configuration. Deliver plaintext using
+the infrastructure's runtime secret-management mechanism, outside Git, image
+layers and infrastructure state. Do not set the environment-value alternative
+`WALTER_OIDC_CLIENT_SECRET` at the same time.
 
 ## Identity and model configuration
 

@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestConfig(t *testing.T) {
 	values := map[string]string{"WALTER_PUBLIC_URL": "https://chat.example/", "WALTER_OIDC_ISSUER": "https://identity.example/oauth2/openid/chat", "WALTER_OIDC_CLIENT_ID": "chat", "WALTER_OIDC_CLIENT_SECRET": "secret", "WALTER_LLAMA_ENDPOINT": "http://inference.example:8080/v1/chat/completions", "WALTER_MODEL": "test", "WALTER_QUICK_JSON": `{"reasoning_effort":"none"}`, "WALTER_THOUGHTFUL_JSON": `{"chat_template_kwargs":{"enable_thinking":true}}`}
@@ -18,5 +22,27 @@ func TestConfig(t *testing.T) {
 				t.Fatal("accepted invalid configuration")
 			}
 		})
+	}
+}
+
+func TestClientSecretFile(t *testing.T) {
+	t.Setenv("WALTER_OIDC_CLIENT_SECRET", "")
+	path := filepath.Join(t.TempDir(), "client-secret")
+	if err := os.WriteFile(path, []byte("mounted-secret\r\n"), 0400); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WALTER_OIDC_CLIENT_SECRET_FILE", path)
+	value, err := clientSecret()
+	if err != nil || value != "mounted-secret" {
+		t.Fatal("secret file not loaded")
+	}
+	t.Setenv("WALTER_OIDC_CLIENT_SECRET", "other")
+	if _, err := clientSecret(); err == nil {
+		t.Fatal("ambiguous secret sources accepted")
+	}
+	t.Setenv("WALTER_OIDC_CLIENT_SECRET", "")
+	t.Setenv("WALTER_OIDC_CLIENT_SECRET_FILE", path+".missing")
+	if _, err := clientSecret(); err == nil {
+		t.Fatal("missing secret file accepted")
 	}
 }

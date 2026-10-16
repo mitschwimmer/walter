@@ -38,8 +38,27 @@ func env(k, fallback string) string {
 	}
 	return fallback
 }
+func clientSecret() (string, error) {
+	value, path := os.Getenv("WALTER_OIDC_CLIENT_SECRET"), os.Getenv("WALTER_OIDC_CLIENT_SECRET_FILE")
+	if path == "" {
+		return value, nil
+	}
+	if value != "" {
+		return "", errors.New("configure only one OIDC client secret source")
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", errors.New("cannot read OIDC client secret file")
+	}
+	return strings.TrimRight(string(b), "\r\n"), nil
+}
 func config() (Config, error) {
-	c := Config{Listen: env("WALTER_LISTEN", "127.0.0.1:8080"), PublicURL: os.Getenv("WALTER_PUBLIC_URL"), Issuer: os.Getenv("WALTER_OIDC_ISSUER"), ClientID: os.Getenv("WALTER_OIDC_CLIENT_ID"), ClientSecret: os.Getenv("WALTER_OIDC_CLIENT_SECRET"), DataDir: env("WALTER_DATA_DIR", "data"), Endpoint: os.Getenv("WALTER_LLAMA_ENDPOINT"), Model: os.Getenv("WALTER_MODEL"), Groups: strings.Split(env("WALTER_ALLOWED_GROUPS", "walter-users"), ","), GenerationTimeout: 2 * time.Hour, SessionTTL: 12 * time.Hour, MaxHistory: 48000, MaxOutput: 4096}
+	c := Config{Listen: env("WALTER_LISTEN", "127.0.0.1:8080"), PublicURL: os.Getenv("WALTER_PUBLIC_URL"), Issuer: os.Getenv("WALTER_OIDC_ISSUER"), ClientID: os.Getenv("WALTER_OIDC_CLIENT_ID"), ClientSecret: "", DataDir: env("WALTER_DATA_DIR", "data"), Endpoint: os.Getenv("WALTER_LLAMA_ENDPOINT"), Model: os.Getenv("WALTER_MODEL"), Groups: strings.Split(env("WALTER_ALLOWED_GROUPS", "walter-users"), ","), GenerationTimeout: 2 * time.Hour, SessionTTL: 12 * time.Hour, MaxHistory: 48000, MaxOutput: 4096}
+	var err error
+	c.ClientSecret, err = clientSecret()
+	if err != nil {
+		return c, err
+	}
 	for _, v := range []struct {
 		key string
 		dst *time.Duration
