@@ -7,10 +7,68 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestInferenceProfiles(t *testing.T) {
+	for k, v := range map[string]string{
+		"WALTER_PUBLIC_URL": "https://chat.example", "WALTER_OIDC_ISSUER": "https://identity.example",
+		"WALTER_OIDC_CLIENT_ID": "chat", "WALTER_OIDC_CLIENT_SECRET": "secret", "WALTER_OIDC_CLIENT_SECRET_FILE": "",
+		"WALTER_MODEL": "qwen38-chat", "WALTER_QUICK_JSON": "", "WALTER_THOUGHTFUL_JSON": "",
+		"WALTER_MAX_OUTPUT_TOKENS": "4096",
+	} {
+		t.Setenv(k, v)
+	}
+	for _, tc := range []struct {
+		mode, settings string
+	}{
+		{"quick", `{"chat_template_kwargs":{"enable_thinking":false,"preserve_thinking":false},"temperature":0.7,"top_p":0.8,"top_k":20,"min_p":0,"presence_penalty":1.5,"repeat_penalty":1,"max_tokens":2048}`},
+		{"thoughtful", `{"chat_template_kwargs":{"enable_thinking":true,"preserve_thinking":false,"reasoning_effort":"medium"},"temperature":1,"top_p":0.95,"top_k":20,"min_p":0,"presence_penalty":0,"repeat_penalty":1,"max_tokens":8192}`},
+		{"override", `{"presence_penalty":0.5,"repeat_penalty":1.1,"max_tokens":512}`},
+		{"fallback", `{"temperature":0.5}`},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			if tc.mode == "override" || tc.mode == "fallback" {
+				t.Setenv("WALTER_QUICK_JSON", tc.settings)
+			}
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var got, want map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+					t.Error(err)
+				}
+				if err := json.Unmarshal([]byte(tc.settings), &want); err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := want["max_tokens"]; !ok {
+					want["max_tokens"] = float64(4096)
+				}
+				want["model"], want["stream"], want["reasoning_format"] = "qwen38-chat", true, "deepseek"
+				// Message construction, including the German system prompt, is checked separately.
+				delete(got, "messages")
+				if !reflect.DeepEqual(got, want) {
+					t.Errorf("request = %#v; want %#v", got, want)
+				}
+				w.Header().Set("Content-Type", "text/event-stream")
+				io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Hallo\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+			}))
+			defer srv.Close()
+			t.Setenv("WALTER_LLAMA_ENDPOINT", srv.URL)
+			cfg, err := config()
+			if err != nil {
+				t.Fatal(err)
+			}
+			a := &App{cfg: cfg, client: srv.Client()}
+			c := fixture()
+			c.Model, c.Thinking = cfg.Model, tc.mode
+			if err := a.infer(context.Background(), c, func(string) error { return nil }); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
 
 func TestInference(t *testing.T) {
 	for _, tc := range []struct {

@@ -50,8 +50,10 @@ groups array containing the groups explicitly authorized for Walter. Set
 
 `WALTER_LLAMA_ENDPOINT` is required: supply the full private chat completions URL.
 Verify the model alias, context size and thinking flags against the installed
-GGUF/template. Both thinking profiles are deliberately required. Test answer
-German text and separated reasoning for both thinking modes.
+GGUF/template. The default profiles target `qwen38-chat`; set `WALTER_MODEL`
+to that alias and remove old `WALTER_QUICK_JSON` / `WALTER_THOUGHTFUL_JSON`
+overrides, or update them to the profiles in the root README. Test German
+answer text and separated reasoning for both thinking modes.
 
 ## HTTPS proxy
 
