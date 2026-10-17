@@ -175,7 +175,7 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/site", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]string{"imprint_url": a.cfg.ImprintURL, "privacy_url": a.cfg.PrivacyURL})
+		writeJSON(w, 200, map[string]string{"imprint_url": a.cfg.ImprintURL, "privacy_url": a.cfg.PrivacyURL, "revision": buildRevision()})
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /auth/login", a.auth.login)

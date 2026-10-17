@@ -67,7 +67,7 @@ jobs:
           go vet ./...
           mkdir -p dist/out dist/etc/ssl/certs dist/data
           chmod 0700 dist/data
-          go build -buildvcs=false -trimpath -ldflags='-s -w' -o dist/out/walter .
+          go build -buildvcs=false -trimpath -ldflags="-s -w -X main.revision=$GITHUB_SHA" -o dist/out/walter .
           cp /etc/ssl/certs/ca-certificates.crt dist/etc/ssl/certs/
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Image tags
