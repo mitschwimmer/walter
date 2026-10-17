@@ -125,7 +125,7 @@ func TestMarkdownFlushWhileUpstreamPaused(t *testing.T) {
 			return stop
 		}
 		return nil
-	})
+	}, nil)
 	if !errors.Is(err, stop) || len(snapshots) != 2 || reply.Content != "**Hello**" {
 		t.Fatal(err, snapshots, reply)
 	}

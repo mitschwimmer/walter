@@ -110,6 +110,17 @@ Model settings allow `reasoning_effort`, `chat_template_kwargs`, `temperature`,
 `WALTER_MAX_OUTPUT_TOKENS`. The adapter always requests streaming and
 `reasoning_format: deepseek`, so reasoning is separated upstream and discarded,
 not displayed or stored. Never use the raw `none` reasoning format.
+Walter also requests `return_progress: true` and `timings_per_token: true`.
+Recent llama.cpp servers stream `prompt_progress`; the waiting line shows
+`Prefill: N%` from `processed / total` (including the cached prefix).
+A nonempty `reasoning_content` delta switches the line to `Denkt nach …`;
+when present, `timings.predicted_n` adds the actual generated-token count,
+including any generation markers. It is activity, not percent complete:
+llama.cpp does not know the eventual length of thinking.
+Only phase and numeric counters reach the browser; reasoning is discarded.
+Servers that omit these extensions keep the neutral waiting label until text
+arrives; Walter never invents a percentage or infers thinking from the mode.
+Progress disappears with the first answer snapshot and is not persisted.
 
 The default profiles target `qwen38-chat`. Set `WALTER_MODEL=qwen38-chat` and
 leave the profile variables unset to use these defaults. Existing nonempty

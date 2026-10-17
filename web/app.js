@@ -53,6 +53,10 @@ function bubble(m) {
     loader.setAttribute('role', 'status');
     loader.setAttribute('aria-label', 'Walter bereitet die Antwort vor.');
     section.classList.add('waiting');
+    const status = document.createElement('div');
+    status.className = 'response-status';
+    status.textContent = 'Warte auf das Modell …';
+    loader.append(status);
     body.append(loader);
   }
   section.append(body);
@@ -266,6 +270,12 @@ $('composer').onsubmit = async e => {
       if (name === 'snapshot') {
         target.innerHTML = data.html;
         target.parentElement.classList.toggle('waiting', !target.hasChildNodes());
+      }
+      else if (name === 'progress') {
+        const status = target.querySelector('.response-status');
+        if (!status) return;
+        if (data.phase === 'prefill') status.textContent = `Prefill: ${data.percent ?? 0}%`;
+        else if (data.phase === 'thinking') status.textContent = data.tokens > 0 ? `Denkt nach … · ${data.tokens} Tokens erzeugt` : 'Denkt nach …';
       }
       else if (name === 'error') throw new Error(data.error);
       else if (name === 'done') complete = true;

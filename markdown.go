@@ -46,9 +46,10 @@ func renderConversation(c *Conversation) (conversationHTML, error) {
 // The reader owns inference; this goroutine owns reply content and all writes.
 // A bounded handoff and cancellation keep slow/disconnected clients from
 // leaving a reader behind. The ticker also flushes text when upstream pauses.
-func (a *App) streamReply(ctx context.Context, c *Conversation, reply *Message, snapshot func(string) error) error {
+func (a *App) streamReply(ctx context.Context, c *Conversation, reply *Message, snapshot func(string) error, progress func(inferenceProgress) error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	chunks := make(chan string)
+	statuses := make(chan inferenceProgress)
 	result := make(chan error, 1)
 	stopped := make(chan struct{})
 	go func() {
@@ -56,6 +57,13 @@ func (a *App) streamReply(ctx context.Context, c *Conversation, reply *Message, 
 		err := a.infer(ctx, c, func(text string) error {
 			select {
 			case chunks <- text:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}, func(p inferenceProgress) error {
+			select {
+			case statuses <- p:
 				return nil
 			case <-ctx.Done():
 				return ctx.Err()
@@ -94,6 +102,12 @@ func (a *App) streamReply(ctx context.Context, c *Conversation, reply *Message, 
 			if first {
 				first = false
 				if err := flush(); err != nil {
+					return err
+				}
+			}
+		case p := <-statuses:
+			if progress != nil {
+				if err := progress(p); err != nil {
 					return err
 				}
 			}

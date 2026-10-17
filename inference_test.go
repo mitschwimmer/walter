@@ -46,6 +46,7 @@ func TestInferenceProfiles(t *testing.T) {
 					want["max_tokens"] = float64(4096)
 				}
 				want["model"], want["stream"], want["reasoning_format"] = "qwen38-chat", true, "deepseek"
+				want["return_progress"], want["timings_per_token"] = true, true
 				// Message construction, including the German system prompt, is checked separately.
 				delete(got, "messages")
 				if !reflect.DeepEqual(got, want) {
@@ -63,7 +64,7 @@ func TestInferenceProfiles(t *testing.T) {
 			a := &App{cfg: cfg, client: srv.Client()}
 			c := fixture()
 			c.Model, c.Thinking = cfg.Model, tc.mode
-			if err := a.infer(context.Background(), c, func(string) error { return nil }); err != nil {
+			if err := a.infer(context.Background(), c, func(string) error { return nil }, nil); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -95,7 +96,7 @@ func TestInference(t *testing.T) {
 			a := &App{cfg: Config{Endpoint: srv.URL, Quick: map[string]any{"reasoning_effort": "none"}}, client: srv.Client()}
 			c := fixture()
 			var output string
-			err := a.infer(context.Background(), c, func(s string) error { output += s; return nil })
+			err := a.infer(context.Background(), c, func(s string) error { output += s; return nil }, nil)
 			if (err == nil) != tc.ok {
 				t.Fatal(err)
 			}

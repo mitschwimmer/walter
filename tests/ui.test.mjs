@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL('../web/', import.meta.url));
 let signedIn = true, expireNext = false, rejectNext = false, rejectDelete = false, sequence = 0;
 let footerLinks = true;
 let releaseSession, releaseReload;
-let releaseAnswer;
+let releaseAnswer, releaseProgress;
 const conversations = new Map(), submissions = [], creations = [];
 const answer = '<p>Marmelade ist ein süßer Aufstrich aus Früchten und Zucker.</p><h2>Wichtige Merkmale</h2><ul><li>Früchte</li><li>Zucker</li></ul><p><strong>Gut zu wissen:</strong> Walter kann auch Tabellen und Code darstellen.</p><table><thead><tr><th>Zutat</th><th>Menge</th></tr></thead><tbody><tr><td>Früchte</td><td>1 kg</td></tr></tbody></table><pre><code>&lt;script&gt;kein ausführbarer Code&lt;/script&gt;\n' + 'langes_wort_'.repeat(30) + '</code></pre>';
 const json = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
@@ -67,6 +67,7 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const event = (name, data) => res.write(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
     event('start', {});
+    releaseProgress = data => event('progress', data);
     if (releaseAnswer === null) {
       await new Promise(resolve => { releaseAnswer = resolve; });
       releaseAnswer = undefined;
@@ -128,6 +129,16 @@ try {
   await loader.waitFor({ state: 'visible' });
   assert.equal(await loader.getAttribute('aria-label'), 'Walter bereitet die Antwort vor.');
   assert.equal(await page.locator('.assistant small').count(), 0);
+  const status = page.locator('.response-status');
+  assert.equal(await status.textContent(), 'Warte auf das Modell …');
+  releaseProgress({ phase: 'prefill', percent: 23 });
+  await page.waitForFunction(() => document.querySelector('.response-status')?.textContent === 'Prefill: 23%');
+  releaseProgress({ phase: 'prefill', percent: 87 });
+  await page.waitForFunction(() => document.querySelector('.response-status')?.textContent === 'Prefill: 87%');
+  releaseProgress({ phase: 'thinking' });
+  await page.waitForFunction(() => document.querySelector('.response-status')?.textContent === 'Denkt nach …');
+  releaseProgress({ phase: 'thinking', tokens: 123 });
+  await page.waitForFunction(() => document.querySelector('.response-status')?.textContent === 'Denkt nach … · 123 Tokens erzeugt');
   assert.equal(await page.locator('#content').isVisible(), false);
   assert.equal(await page.locator('#quick').isVisible(), false);
   assert.equal(await page.locator('#thoughtful').isVisible(), false);
@@ -155,6 +166,8 @@ try {
   releaseAnswer();
   await page.locator('.assistant p').waitFor();
   assert.equal(await loader.count(), 0);
+  assert.equal(await status.count(), 0);
+  releaseProgress({ phase: 'thinking', tokens: 999 });
   assert.equal(await page.locator('#stop').isVisible(), true);
   await page.locator('#history-link').dispatchEvent('click');
   await state('conversation'); // Navigation is locked until persistence finishes.
