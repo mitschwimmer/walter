@@ -97,20 +97,7 @@ type inferenceProgress struct {
 }
 
 func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) error, progress func(inferenceProgress) error) error {
-	messages := []map[string]string{{"role": "system", "content": systemPrompt}}
-	for _, m := range c.Messages {
-		if m.Role == "user" || (m.Role == "assistant" && m.Status == "complete") {
-			messages = append(messages, map[string]string{"role": m.Role, "content": m.Content})
-		}
-	}
-	payload := map[string]any{"model": c.Model, "messages": messages, "stream": true, "reasoning_format": "deepseek", "max_tokens": a.cfg.MaxOutput, "return_progress": true, "timings_per_token": true}
-	settings := a.cfg.Quick
-	if c.Thinking == "thoughtful" {
-		settings = a.cfg.Thoughtful
-	}
-	for k, v := range settings {
-		payload[k] = v
-	}
+	payload := a.inferencePayload(c, conversationMessages(c), c.Thinking)
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -265,6 +252,10 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	}
 	if input.Thinking != "" {
 		c.Thinking = input.Thinking
+	}
+	if !a.promptFits(r.Context(), c, input.Content) {
+		problem(w, 413, "Kontext voll. Bitte eine neue Frage starten oder die Frage kürzen.")
+		return
 	}
 	if len(c.Messages) == 0 {
 		title := []rune(input.Content)

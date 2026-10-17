@@ -273,6 +273,7 @@ func (a *App) get(w http.ResponseWriter, r *http.Request, u string) {
 		problem(w, 500, "Chat konnte nicht dargestellt werden.")
 		return
 	}
+	view.Context = a.conversationContext(r.Context(), c)
 	writeJSON(w, 200, view)
 }
 func (a *App) remove(w http.ResponseWriter, r *http.Request, u string) {

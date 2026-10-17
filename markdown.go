@@ -26,6 +26,7 @@ type messageHTML struct {
 type conversationHTML struct {
 	*Conversation
 	Messages []messageHTML `json:"messages"`
+	Context  *contextUsage `json:"context,omitempty"`
 }
 
 func renderConversation(c *Conversation) (conversationHTML, error) {

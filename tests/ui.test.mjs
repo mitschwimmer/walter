@@ -11,6 +11,7 @@ const { chromium } = require(process.env.WALTER_PLAYWRIGHT_MODULE || 'playwright
 const root = fileURLToPath(new URL('../web/', import.meta.url));
 let signedIn = true, expireNext = false, rejectNext = false, rejectDelete = false, sequence = 0;
 let footerLinks = true;
+let contextKnown = true, contextQuick = 4096, contextThoughtful = 8192;
 let releaseSession, releaseReload;
 let releaseAnswer, releaseProgress;
 const conversations = new Map(), submissions = [], creations = [];
@@ -51,7 +52,7 @@ const server = createServer(async (req, res) => {
     if (!c) return json(res, 404, { error: 'Gespräch nicht gefunden.' });
     if (req.method === 'GET') {
       if (releaseReload === null) await new Promise(resolve => { releaseReload = resolve; });
-      return json(res, 200, c);
+      return json(res, 200, { ...c, ...(contextKnown && c.messages.at(-1)?.status === 'complete' ? { context: { capacity: 16384, quick: contextQuick, thoughtful: contextThoughtful } } : {}) });
     }
     if (req.method === 'DELETE') {
       if (rejectDelete) { rejectDelete = false; return json(res, 503, { error: 'Löschen fehlgeschlagen.' }); }
@@ -121,6 +122,7 @@ try {
   assert.equal(await page.locator('#revision').textContent(), 'Build 10d95b1');
   assert.equal(await page.locator('aside').count(), 0);
   await page.locator('#content').fill('Was ist Marmelade?');
+  assert.equal(await page.locator('#context-info').isVisible(), false);
   await screenshot('start-desktop');
   releaseAnswer = null;
   await page.locator('#thoughtful').click();
@@ -140,6 +142,7 @@ try {
   releaseProgress({ phase: 'thinking', tokens: 123 });
   await page.waitForFunction(() => document.querySelector('.response-status')?.textContent === 'Denkt nach … · 123 Tokens erzeugt');
   assert.equal(await page.locator('#content').isVisible(), false);
+  assert.equal(await page.locator('#context-info').isVisible(), false);
   assert.equal(await page.locator('#quick').isVisible(), false);
   assert.equal(await page.locator('#thoughtful').isVisible(), false);
   assert.deepEqual(await loader.evaluate(el => {
@@ -178,6 +181,8 @@ try {
   releaseReload = undefined;
   await idle();
   assert.deepEqual(creations[0], { thinking: 'thoughtful' });
+  assert.equal(await page.locator('#context-info').textContent(), 'Kontext: 50% · 8.192 / 16.384 Tokens');
+  assert.equal(await page.locator('#context-info').isVisible(), true);
   assert.equal(await page.locator('.assistant table').count(), 1);
   assert.equal(await page.locator('#quick').isVisible(), true);
   assert.equal(await page.locator('#thoughtful').isVisible(), true);
@@ -195,6 +200,43 @@ try {
   assert.equal(creations.length, 1);
   assert.equal([...conversations.values()][0].thinking, 'quick');
   assert.equal(await page.locator('#mode-label').textContent(), 'schnell');
+  assert.equal(await page.locator('#context-info').textContent(), 'Kontext: 25% · 4.096 / 16.384 Tokens');
+  contextKnown = false;
+  await page.reload();
+  await state('conversation');
+  await idle();
+  assert.equal(await page.locator('#context-info').textContent(), 'Kontext: unbekannt');
+  assert.equal(await page.locator('#quick').isEnabled(), true);
+  assert.equal(await page.locator('#thoughtful').isEnabled(), true);
+  contextKnown = true;
+  contextQuick = 16384;
+  await page.reload();
+  await state('conversation');
+  await idle();
+  assert.equal(await page.locator('#quick').isEnabled(), false);
+  assert.equal(await page.locator('#thoughtful').isEnabled(), true);
+  contextThoughtful = 16384;
+  await page.reload();
+  await state('conversation');
+  await page.locator('#context-full').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#quick').isEnabled(), false);
+  assert.equal(await page.locator('#thoughtful').isEnabled(), false);
+  assert.equal(await page.locator('#content').isVisible(), false);
+  assert.equal(await page.locator('#logout').isEnabled(), true);
+  await page.setViewportSize({ width: 320, height: 844 });
+  await noOverflow();
+  await screenshot('context-full-mobile');
+  await page.locator('#context-full a').click();
+  await state('start');
+  await inputFocused();
+  assert.equal(await page.locator('#context-info').isVisible(), false);
+  contextQuick = 4096;
+  contextThoughtful = 8192;
+  await page.setViewportSize({ width: 1071, height: 1579 });
+  await page.goto(conversationURL);
+  await state('conversation');
+  await idle();
+
   await page.locator('#history-link').click();
   await state('history');
   await page.waitForSelector('#chats a');
