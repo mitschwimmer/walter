@@ -52,6 +52,7 @@ function bubble(m) {
     loader.className = `response-loader turn-${Math.floor(Math.random() * 4)} tempo-${Math.floor(Math.random() * 3)} tone-${Math.floor(Math.random() * 3)}`;
     loader.setAttribute('role', 'status');
     loader.setAttribute('aria-label', 'Walter bereitet die Antwort vor.');
+    section.classList.add('waiting');
     body.append(loader);
   }
   section.append(body);
@@ -70,7 +71,6 @@ function updateComposer() {
   $('mode-label').textContent = current?.thinking === 'thoughtful' ? 'bedacht' : 'schnell';
   $('composer-label').textContent = started ? 'Deine nächste Frage' : 'Deine Frage';
   $('content').placeholder = started ? 'Was möchtest du noch wissen?' : 'Was möchtest du wissen?';
-  for (const id of ['quick', 'thoughtful']) $(id).hidden = !!current && current.thinking !== id;
   busy(!!controller);
 }
 function show(c) {
@@ -81,14 +81,17 @@ function show(c) {
   updateComposer();
 }
 function busy(value) {
-  for (const id of ['quick', 'thoughtful', 'delete', 'content', 'logout', 'confirm-delete']) $(id).disabled = value || recovering;
+  const unavailable = value || recovering || !!current?.messages.some(m => m.status === 'pending');
+  $('prompt-input').hidden = unavailable;
+  for (const id of ['quick', 'thoughtful']) $(id).hidden = unavailable;
+  for (const id of ['quick', 'thoughtful', 'delete', 'content', 'logout', 'confirm-delete']) $(id).disabled = unavailable;
   $('chats').querySelectorAll('button').forEach(button => button.disabled = value || recovering);
   for (const id of ['home', 'new', 'history-link']) {
     if (value || recovering) $(id).setAttribute('aria-disabled', 'true');
     else $(id).removeAttribute('aria-disabled');
   }
   $('stop').hidden = !value;
-  $('composer').setAttribute('aria-busy', String(value));
+  $('composer').setAttribute('aria-busy', String(unavailable));
   $('activity').textContent = value ? 'Walter antwortet …' : recovering ? 'Gespräch wird geladen …' : '';
   $('activity').classList.toggle('sr-only', value);
 }
@@ -233,11 +236,12 @@ $('composer').onsubmit = async e => {
   if (controller || recovering || !authenticated) return;
   const text = $('content').value.trim();
   if (!text) { $('content').focus(); return; }
-  const thinking = current?.thinking || e.submitter?.value || 'quick';
+  const thinking = e.submitter?.value || current?.thinking || 'quick';
   clearError();
   $('draft-hint').hidden = true;
   controller = new AbortController();
   busy(true);
+  $('stop').focus({ preventScroll: true });
   let accepted = false, complete = false, target, id;
   try {
     if (!current) {
@@ -247,8 +251,10 @@ $('composer').onsubmit = async e => {
       updateComposer();
     }
     id = current.id;
-    const response = await api(`/api/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: text }), signal: controller.signal });
+    const response = await api(`/api/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: text, thinking }), signal: controller.signal });
     accepted = true;
+    current.thinking = thinking;
+    $('mode-label').textContent = thinking === 'thoughtful' ? 'bedacht' : 'schnell';
     $('content').value = '';
     bubble({ role: 'user', content: text, status: 'complete' });
     target = bubble({ role: 'assistant', content: '', status: 'pending' });
@@ -257,7 +263,10 @@ $('composer').onsubmit = async e => {
     $('content').placeholder = 'Was möchtest du noch wissen?';
     $('composer-label').textContent = 'Deine nächste Frage';
     await readEvents(response.body, (name, data) => {
-      if (name === 'snapshot') target.innerHTML = data.html;
+      if (name === 'snapshot') {
+        target.innerHTML = data.html;
+        target.parentElement.classList.toggle('waiting', !target.hasChildNodes());
+      }
       else if (name === 'error') throw new Error(data.error);
       else if (name === 'done') complete = true;
     });
@@ -267,11 +276,10 @@ $('composer').onsubmit = async e => {
     if (!accepted && authenticated) $('draft-hint').hidden = false;
   } finally {
     controller = null;
-    busy(false);
     if (accepted && authenticated) {
       try { await reloadReply(id); } catch (e) { error(e); }
-    }
-    if (authenticated) $('content').focus({ preventScroll: true });
+    } else busy(false);
+    if (authenticated && !$('prompt-input').hidden) $('content').focus({ preventScroll: true });
   }
 };
 async function loadSite() {

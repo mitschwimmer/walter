@@ -162,3 +162,32 @@ func TestDiscoveryPreservesCause(t *testing.T) {
 		t.Fatal("discovery failure did not preserve its network cause and context")
 	}
 }
+
+func TestLoginReusesValidSession(t *testing.T) {
+	for _, valid := range []bool{true, false} {
+		t.Run(map[bool]string{true: "valid", false: "expired"}[valid], func(t *testing.T) {
+			a := testApp(t)
+			value := strings.Repeat("a", 43)
+			expires := time.Now().Add(time.Hour)
+			if !valid {
+				expires = time.Now().Add(-time.Second)
+			}
+			a.auth.sessions[hashToken(value)] = Session{User: "a", CSRF: "csrf", Expires: expires}
+			a.auth.oauth.Endpoint.AuthURL = "https://identity.example/authorize"
+			r := httptest.NewRequest("GET", "/auth/login", nil)
+			r.AddCookie(&http.Cookie{Name: "__Host-walter-session", Value: value})
+			w := httptest.NewRecorder()
+			a.routes().ServeHTTP(w, r)
+			if w.Code != http.StatusSeeOther {
+				t.Fatal(w.Code)
+			}
+			if valid {
+				if w.Header().Get("Location") != "/" || len(w.Result().Cookies()) != 0 || len(a.auth.flows) != 0 {
+					t.Fatal("valid session started a new login", w.Header())
+				}
+			} else if !strings.HasPrefix(w.Header().Get("Location"), "https://identity.example/authorize?") || len(a.auth.flows) != 1 {
+				t.Fatal("expired session skipped authentication", w.Header())
+			}
+		})
+	}
+}

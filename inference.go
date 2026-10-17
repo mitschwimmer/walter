@@ -183,9 +183,14 @@ func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) err
 }
 func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	var input struct {
-		Content string `json:"content"`
+		Content  string `json:"content"`
+		Thinking string `json:"thinking"`
 	}
 	if !decode(w, r, &input) {
+		return
+	}
+	if input.Thinking != "" && input.Thinking != "quick" && input.Thinking != "thoughtful" {
+		problem(w, 400, "Denkmodus ungültig.")
 		return
 	}
 	input.Content = strings.TrimSpace(input.Content)
@@ -214,6 +219,9 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	if c.Model != a.cfg.Model {
 		problem(w, 409, "Das Modell dieses Chats ist nicht mehr konfiguriert.")
 		return
+	}
+	if input.Thinking != "" {
+		c.Thinking = input.Thinking
 	}
 	if len(c.Messages) == 0 {
 		title := []rune(input.Content)

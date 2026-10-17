@@ -65,6 +65,10 @@ func cookie(w http.ResponseWriter, name, value string, age int) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: age})
 }
 func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
+	if a.session(r) != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
 	state, nonce, verifier := token(), token(), oauth2.GenerateVerifier()
 	a.mu.Lock()
 	a.prune()
