@@ -20,6 +20,7 @@
         ldflags = [
           "-s"
           "-w"
+          "-X main.revision=${self.rev or self.dirtyRev or "dev"}"
         ];
         checkPhase = ''
           runHook preCheck

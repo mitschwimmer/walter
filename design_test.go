@@ -52,7 +52,7 @@ func TestPublicSiteLinks(t *testing.T) {
 	a.cfg.ClientSecret = "private"
 	w := request(a, "GET", "/api/site", "", "")
 	var site map[string]string
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &site) != nil || len(site) != 2 || site["imprint_url"] != a.cfg.ImprintURL || site["privacy_url"] != a.cfg.PrivacyURL {
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &site) != nil || len(site) != 3 || site["imprint_url"] != a.cfg.ImprintURL || site["privacy_url"] != a.cfg.PrivacyURL || site["revision"] != buildRevision() {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	if strings.Contains(w.Body.String(), "private") {

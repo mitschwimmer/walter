@@ -10,13 +10,14 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.WALTER_PLAYWRIGHT_MODULE || 'playwright');
 const root = fileURLToPath(new URL('../web/', import.meta.url));
 let signedIn = true, expireNext = false, rejectNext = false, rejectDelete = false, sequence = 0;
+let footerLinks = true;
 const conversations = new Map(), submissions = [], creations = [];
 const answer = '<p>Marmelade ist ein süßer Aufstrich aus Früchten und Zucker.</p><h2>Wichtige Merkmale</h2><ul><li>Früchte</li><li>Zucker</li></ul><p><strong>Gut zu wissen:</strong> Walter kann auch Tabellen und Code darstellen.</p><table><thead><tr><th>Zutat</th><th>Menge</th></tr></thead><tbody><tr><td>Früchte</td><td>1 kg</td></tr></tbody></table><pre><code>&lt;script&gt;kein ausführbarer Code&lt;/script&gt;\n' + 'langes_wort_'.repeat(30) + '</code></pre>';
 const json = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
 const server = createServer(async (req, res) => {
   try {
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'");
-    if (req.url === '/api/site') return json(res, 200, { imprint_url: 'https://example.com/impressum', privacy_url: 'https://example.com/datenschutz' });
+    if (req.url === '/api/site') return json(res, 200, { revision: '10d95b1', ...(footerLinks ? { imprint_url: 'https://example.com/impressum', privacy_url: 'https://example.com/datenschutz' } : {}) });
     if (!req.url.startsWith('/api/') && !req.url.startsWith('/auth/')) {
       const filename = req.url === '/' ? 'index.html' : req.url.slice(1);
       if (!['index.html', 'app.js', 'style.css', 'sse.js', 'walter.svg'].includes(filename)) return json(res, 404, {});
@@ -88,6 +89,8 @@ try {
   await page.goto(origin);
   await state('start');
   await inputFocused();
+  await page.locator('#revision').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#revision').textContent(), 'Build 10d95b1');
   assert.equal(await page.locator('aside').count(), 0);
   await page.locator('#content').fill('Was ist Marmelade?');
   await screenshot('start-desktop');
@@ -225,6 +228,15 @@ try {
   assert.equal(signedIn, false);
   await page.setViewportSize({ width: 1071, height: 1579 });
   await screenshot('login-desktop');
+  footerLinks = false;
+  await page.reload();
+  await state('login');
+  await page.locator('#revision').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#revision').textContent(), 'Build 10d95b1');
+  assert.equal(await page.locator('#footer').isVisible(), true);
+  assert.equal(await page.locator('#imprint').isVisible(), false);
+  assert.equal(await page.locator('#privacy').isVisible(), false);
+  await screenshot('build-only-footer');
   assert.deepEqual(errors, []);
   console.log('UI passed: both modes, streaming, follow-up, stop, history, deep links, delete/cancel, retry, session expiry, logout and responsive overflow.');
 } finally {

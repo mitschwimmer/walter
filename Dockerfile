@@ -1,17 +1,19 @@
 # CI overrides the build context with cached, tested output; local builds use this stage.
+ARG REVISION=dev
 FROM golang:1.25.3-bookworm AS build
+ARG REVISION
 WORKDIR /src
 ENV CGO_ENABLED=0
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY *.go ./
 COPY web/ ./web/
-RUN go test ./... && go build -buildvcs=false -trimpath -ldflags="-s -w" -o /out/walter .
+RUN go test ./... && go build -buildvcs=false -trimpath -ldflags="-s -w -X main.revision=${REVISION}" -o /out/walter .
 RUN mkdir -m 0700 /data
 
 FROM scratch
 ARG VERSION=dev
-ARG REVISION=unknown
+ARG REVISION
 LABEL org.opencontainers.image.title="Walter" \
       org.opencontainers.image.description="Minimal private chat with llama.cpp and OIDC" \
       org.opencontainers.image.source="https://github.com/mitschwimmer/walter" \

@@ -271,6 +271,11 @@ async function loadSite() {
     const response = await fetch('/api/site');
     if (!response.ok) return;
     const site = await response.json();
+    if (site.revision) {
+      $('revision').textContent = `Build ${site.revision}`;
+      $('revision').hidden = false;
+      $('footer').hidden = false;
+    }
     for (const [id, url] of [['imprint', site.imprint_url], ['privacy', site.privacy_url]]) {
       if (!url) continue;
       const parsed = new URL(url);

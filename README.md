@@ -48,6 +48,17 @@ node tests/sse.test.mjs
 
 Footer links appear when their URLs are configured, including on the login page.
 Supply your actual operator/privacy pages; Walter does not generate legal text.
+The small footer also shows the build's seven-character Git revision, including
+when no footer links are configured. OCI CI and Nix builds embed their source
+revision; ordinary `go build` uses Go's VCS metadata. Modified checkouts carry
+`-dirty`; builds without revision metadata show `dev`.
+
+For a source Docker build, pass the revision explicitly because the build context
+does not include Git metadata:
+
+```sh
+docker build --build-arg REVISION="$(git rev-parse HEAD)" -t walter .
+```
 
 The optional browser regression suite uses Playwright against a local fixture
 server, without an authentication bypass in Walter. Install Playwright in a
