@@ -20,7 +20,7 @@ const server = createServer(async (req, res) => {
     if (req.url === '/api/site') return json(res, 200, { revision: '10d95b1', ...(footerLinks ? { imprint_url: 'https://example.com/impressum', privacy_url: 'https://example.com/datenschutz' } : {}) });
     if (!req.url.startsWith('/api/') && !req.url.startsWith('/auth/')) {
       const filename = req.url === '/' ? 'index.html' : req.url.slice(1);
-      if (!['index.html', 'app.js', 'style.css', 'sse.js', 'walter.svg'].includes(filename)) return json(res, 404, {});
+      if (!['index.html', 'app.js', 'style.css', 'sse.js', 'walter.svg', 'headline-overlay.svg'].includes(filename)) return json(res, 404, {});
       res.setHeader('Content-Type', filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.svg') ? 'image/svg+xml' : 'text/html');
       return res.end(await readFile(join(root, filename)));
     }
