@@ -72,6 +72,7 @@ p { margin: 0 0 20px; }
 .message { padding: 22px 24px; margin-bottom: 28px; }
 .message.user { border-left: 10px solid var(--line); }
 .message.assistant { border-right: 10px solid var(--line); padding-block: 24px 36px; }
+.message.assistant.waiting { background: none; border: 0; box-shadow: none; padding: 0; }
 .message-content { overflow-wrap: anywhere; }
 .response-loader {
   display: grid;

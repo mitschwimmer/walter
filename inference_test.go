@@ -300,3 +300,65 @@ func TestSaveFailureNeverEmitsDone(t *testing.T) {
 		t.Fatal(w.Body.String())
 	}
 }
+
+func TestFollowUpModes(t *testing.T) {
+	a := testApp(t)
+	a.cfg.Quick = map[string]any{"temperature": 0.7}
+	a.cfg.Thoughtful = map[string]any{"temperature": 1.0}
+	var temperatures []float64
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			Temperature float64             `json:"temperature"`
+			Messages    []map[string]string `json:"messages"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		temperatures = append(temperatures, payload.Temperature)
+		// Every switch retains all earlier questions and complete answers.
+		if len(payload.Messages) != 2*len(temperatures) {
+			t.Error("lost conversation history", payload.Messages)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Hallo\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer upstream.Close()
+	a.cfg.Endpoint = upstream.URL
+	c := fixture()
+	if err := a.store.Save("a", c); err != nil {
+		t.Fatal(err)
+	}
+	path := "/api/conversations/" + c.ID + "/messages"
+	for _, tc := range []struct{ body, mode string }{
+		{`{"content":"Hi","thinking":"thoughtful"}`, "thoughtful"},
+		{`{"content":"Weiter","thinking":"quick"}`, "quick"},
+		{`{"content":"Alter Client"}`, "quick"},
+	} {
+		w := request(a, "POST", path, tc.body, "a")
+		if w.Code != 200 || !strings.Contains(w.Body.String(), "event: done") {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		saved, err := a.store.Get("a", c.ID)
+		if err != nil || saved.Thinking != tc.mode {
+			t.Fatal("mode not persisted", saved, err)
+		}
+	}
+	if len(temperatures) != 3 || temperatures[0] != 1.0 || temperatures[1] != 0.7 || temperatures[2] != 0.7 {
+		t.Fatal("wrong inference profiles", temperatures)
+	}
+	if w := request(a, "POST", path, `{"content":"Hi","thinking":"invalid"}`, "a"); w.Code != 400 {
+		t.Fatal("invalid mode accepted", w.Code)
+	}
+	if !a.reserve("a") {
+		t.Fatal("user busy after generation")
+	}
+	w := request(a, "POST", path, `{"content":"Hi","thinking":"thoughtful"}`, "a")
+	a.release("a")
+	if w.Code != 409 {
+		t.Fatal("accepted queued prompt", w.Code)
+	}
+	saved, err := a.store.Get("a", c.ID)
+	if err != nil || saved.Thinking != "quick" || len(saved.Messages) != 6 {
+		t.Fatal("rejected prompt changed conversation", saved, err)
+	}
+}

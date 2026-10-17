@@ -11,6 +11,7 @@ const { chromium } = require(process.env.WALTER_PLAYWRIGHT_MODULE || 'playwright
 const root = fileURLToPath(new URL('../web/', import.meta.url));
 let signedIn = true, expireNext = false, rejectNext = false, rejectDelete = false, sequence = 0;
 let footerLinks = true;
+let releaseSession, releaseReload;
 let releaseAnswer;
 const conversations = new Map(), submissions = [], creations = [];
 const answer = '<p>Marmelade ist ein süßer Aufstrich aus Früchten und Zucker.</p><h2>Wichtige Merkmale</h2><ul><li>Früchte</li><li>Zucker</li></ul><p><strong>Gut zu wissen:</strong> Walter kann auch Tabellen und Code darstellen.</p><table><thead><tr><th>Zutat</th><th>Menge</th></tr></thead><tbody><tr><td>Früchte</td><td>1 kg</td></tr></tbody></table><pre><code>&lt;script&gt;kein ausführbarer Code&lt;/script&gt;\n' + 'langes_wort_'.repeat(30) + '</code></pre>';
@@ -27,7 +28,10 @@ const server = createServer(async (req, res) => {
     }
     if (expireNext) { expireNext = false; signedIn = false; }
     if (!signedIn) return json(res, 401, { error: 'Bitte erneut anmelden.' });
-    if (req.url === '/api/session') return json(res, 200, { csrf: 'csrf' });
+    if (req.url === '/api/session') {
+      if (releaseSession === null) await new Promise(resolve => { releaseSession = resolve; });
+      return json(res, 200, { csrf: 'csrf' });
+    }
     if (req.method === 'POST' && req.url === '/auth/logout') { signedIn = false; return json(res, 200, {}); }
     if (req.method !== 'GET') assert.equal(req.headers['x-csrf-token'], 'csrf');
     let body = '';
@@ -45,12 +49,17 @@ const server = createServer(async (req, res) => {
     const match = req.url.match(/^\/api\/conversations\/([^/]+)(\/messages)?$/);
     const c = match && conversations.get(match[1]);
     if (!c) return json(res, 404, { error: 'Gespräch nicht gefunden.' });
-    if (req.method === 'GET') return json(res, 200, c);
+    if (req.method === 'GET') {
+      if (releaseReload === null) await new Promise(resolve => { releaseReload = resolve; });
+      return json(res, 200, c);
+    }
     if (req.method === 'DELETE') {
       if (rejectDelete) { rejectDelete = false; return json(res, 503, { error: 'Löschen fehlgeschlagen.' }); }
       conversations.delete(c.id); res.writeHead(204); return res.end();
     }
     if (rejectNext) { rejectNext = false; return json(res, 503, { error: 'Bitte später erneut versuchen.' }); }
+    assert.ok(['quick', 'thoughtful'].includes(body.thinking));
+    c.thinking = body.thinking;
     submissions.push(body.content);
     c.title = body.content.slice(0, 60);
     const reply = { role: 'assistant', content: 'Marmelade', html: '<p>Marmelade</p>', status: 'pending' };
@@ -90,9 +99,21 @@ async function screenshot(name) {
   await mkdir(process.env.WALTER_SCREENSHOT_DIR, { recursive: true });
   await page.screenshot({ path: join(process.env.WALTER_SCREENSHOT_DIR, `${name}.png`), fullPage: true });
 }
+async function waitForFixture(ready) {
+  const deadline = Date.now() + 5000;
+  while (!ready()) {
+    assert.ok(Date.now() < deadline, 'fixture request did not arrive');
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+}
 async function noOverflow() { assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'page overflows viewport'); }
 try {
+  releaseSession = null;
   await page.goto(origin);
+  await state('loading');
+  assert.equal(await page.locator('#login').isVisible(), false);
+  await waitForFixture(() => typeof releaseSession === 'function');
+  releaseSession();
   await state('start');
   await inputFocused();
   await page.locator('#revision').waitFor({ state: 'visible' });
@@ -107,6 +128,13 @@ try {
   await loader.waitFor({ state: 'visible' });
   assert.equal(await loader.getAttribute('aria-label'), 'Walter bereitet die Antwort vor.');
   assert.equal(await page.locator('.assistant small').count(), 0);
+  assert.equal(await page.locator('#content').isVisible(), false);
+  assert.equal(await page.locator('#quick').isVisible(), false);
+  assert.equal(await page.locator('#thoughtful').isVisible(), false);
+  assert.deepEqual(await loader.evaluate(el => {
+    const style = getComputedStyle(el.closest('.message'));
+    return [style.backgroundColor, style.borderRightWidth, style.boxShadow];
+  }), ['rgba(0, 0, 0, 0)', '0px', 'none']);
   assert.equal(await page.locator('#activity').getAttribute('class'), 'sr-only');
   assert.equal(await loader.evaluate(el => getComputedStyle(el, '::before').animationName), 'loader-draw, loader-shift');
   const centered = await loader.evaluate(el => {
@@ -123,16 +151,22 @@ try {
   await screenshot('waiting-mobile-reduced-motion');
   await page.setViewportSize({ width: 1071, height: 1579 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
+  releaseReload = null;
   releaseAnswer();
   await page.locator('.assistant p').waitFor();
   assert.equal(await loader.count(), 0);
   assert.equal(await page.locator('#stop').isVisible(), true);
   await page.locator('#history-link').dispatchEvent('click');
   await state('conversation'); // Navigation is locked until persistence finishes.
+  await waitForFixture(() => typeof releaseReload === 'function');
+  assert.equal(await page.locator('#content').isVisible(), false);
+  assert.equal(await page.locator('#quick').isVisible(), false);
+  releaseReload();
+  releaseReload = undefined;
   await idle();
   assert.deepEqual(creations[0], { thinking: 'thoughtful' });
   assert.equal(await page.locator('.assistant table').count(), 1);
-  assert.equal(await page.locator('#quick').isVisible(), false);
+  assert.equal(await page.locator('#quick').isVisible(), true);
   assert.equal(await page.locator('#thoughtful').isVisible(), true);
   await page.locator('.skip-link').focus();
   await page.keyboard.press('Enter');
@@ -141,11 +175,13 @@ try {
   await screenshot('conversation-desktop');
   const conversationURL = page.url();
   await page.locator('#content').fill('<img src=x onerror=alert(1)>');
-  await page.locator('#thoughtful').click();
+  await page.locator('#quick').click();
   await idle();
   assert.equal(await page.locator('.user img').count(), 0);
   assert.equal(await page.locator('.message').count(), 4);
   assert.equal(creations.length, 1);
+  assert.equal([...conversations.values()][0].thinking, 'quick');
+  assert.equal(await page.locator('#mode-label').textContent(), 'schnell');
   await page.locator('#history-link').click();
   await state('history');
   await page.waitForSelector('#chats a');
@@ -165,6 +201,8 @@ try {
   await page.locator('#stop').click();
   await idle();
   assert.equal(submissions.length, 3);
+  assert.equal([...conversations.values()][0].thinking, 'thoughtful');
+  assert.equal(await page.locator('#mode-label').textContent(), 'bedacht');
   assert.equal(await page.locator('.assistant').last().locator('small').textContent(), 'Abgebrochen');
   await page.locator('#delete').click();
   await page.getByRole('button', { name: 'Behalten', exact: true }).click();
@@ -189,7 +227,7 @@ try {
   assert.equal(creations.length, 2); // Retry reuses the already-created empty conversation.
   assert.equal(submissions.length, 4);
   assert.equal(await page.locator('#quick').isVisible(), true);
-  assert.equal(await page.locator('#thoughtful').isVisible(), false);
+  assert.equal(await page.locator('#thoughtful').isVisible(), true);
   for (const width of [320, 390, 768]) {
     await page.setViewportSize({ width, height: 844 });
     await noOverflow();

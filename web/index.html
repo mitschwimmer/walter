@@ -32,8 +32,10 @@
       <div id="messages" role="log" aria-label="Nachrichten" aria-live="off"></div>
       <div id="conversation-tools" hidden><span id="mode-label" class="muted"></span><button id="delete" type="button">Gespräch löschen</button></div>
       <form id="composer">
-        <label id="composer-label" class="sr-only" for="content">Deine Frage</label>
-        <textarea id="content" rows="5" maxlength="16000" placeholder="Was möchtest du wissen?" required disabled></textarea>
+        <div id="prompt-input">
+          <label id="composer-label" class="sr-only" for="content">Deine Frage</label>
+          <textarea id="content" rows="5" maxlength="16000" placeholder="Was möchtest du wissen?" required disabled></textarea>
+        </div>
         <div class="composer-actions">
           <span id="activity" role="status"></span>
           <button id="stop" class="stop" type="button" hidden>Antwort stoppen</button>

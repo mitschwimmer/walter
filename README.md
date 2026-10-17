@@ -136,7 +136,9 @@ alias no longer matches configuration.
 - Walter answers in German. There is no language selector; old conversation files
   remain readable, including those previously marked English.
 - The start page submits the first question directly using **schnell** or
-  **bedacht**. The chosen thinking mode stays fixed for follow-up questions.
+  **bedacht**. Each follow-up can use either mode; the selected mode is saved with the conversation.
+  Prompt controls are hidden until generation and reply persistence finish.
+  While waiting for the first answer text, the spinner appears directly on the page background.
 - The menu opens **Historie** as a separate view. Conversation URLs use
   `#gespraech/<id>` and can be bookmarked; the logo or **Neue Frage** returns
   to the start page. History, login and deletion confirmation share the same
@@ -178,6 +180,9 @@ issuer, audience and expiry verification through go-oidc. Access requires an exa
 allowed group in the ID token; missing, malformed or unrelated claims deny access.
 Kanidm must emit the groups claim and grant the requested openid/profile/groups
 scopes to the declared client. No email-based identity or proxy-header login.
+
+The start page checks the local session before showing sign-in; `/auth/login`
+returns directly to the start page when that session is still valid.
 
 Session cookies are opaque 256-bit random values; only hashes are used as
 server-side lookup keys. Cookies have `__Host-` names, Secure, HttpOnly, path `/`
