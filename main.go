@@ -23,6 +23,9 @@ import (
 //go:embed web/*
 var assets embed.FS
 
+const quickSettings = `{"chat_template_kwargs":{"enable_thinking":false,"preserve_thinking":false},"temperature":0.7,"top_p":0.8,"top_k":20,"min_p":0.0,"presence_penalty":1.5,"repeat_penalty":1.0,"max_tokens":2048}`
+const thoughtfulSettings = `{"chat_template_kwargs":{"enable_thinking":true,"preserve_thinking":false,"reasoning_effort":"medium"},"temperature":1.0,"top_p":0.95,"top_k":20,"min_p":0.0,"presence_penalty":0.0,"repeat_penalty":1.0,"max_tokens":8192}`
+
 type Config struct {
 	Listen, PublicURL, Issuer, ClientID, ClientSecret, DataDir, Endpoint, Model string
 	ImprintURL, PrivacyURL                                                      string
@@ -94,15 +97,20 @@ func config() (Config, error) {
 		}
 	}
 	for _, v := range []struct {
-		key string
-		dst *map[string]any
-	}{{"WALTER_QUICK_JSON", &c.Quick}, {"WALTER_THOUGHTFUL_JSON", &c.Thoughtful}} {
-		if err := json.Unmarshal([]byte(os.Getenv(v.key)), v.dst); err != nil || len(*v.dst) == 0 {
+		key, fallback string
+		dst           *map[string]any
+	}{{"WALTER_QUICK_JSON", quickSettings, &c.Quick}, {"WALTER_THOUGHTFUL_JSON", thoughtfulSettings, &c.Thoughtful}} {
+		if err := json.Unmarshal([]byte(env(v.key, v.fallback)), v.dst); err != nil || len(*v.dst) == 0 {
 			return c, fmt.Errorf("%s must be a nonempty JSON object of verified model settings", v.key)
 		}
 		for k := range *v.dst {
 			switch k {
-			case "reasoning_effort", "chat_template_kwargs", "temperature", "top_p", "top_k", "min_p":
+			case "reasoning_effort", "chat_template_kwargs", "temperature", "top_p", "top_k", "min_p", "presence_penalty", "repeat_penalty":
+			case "max_tokens":
+				n, ok := (*v.dst)[k].(float64)
+				if !ok || n <= 0 || n != float64(int(n)) {
+					return c, fmt.Errorf("%s max_tokens must be a positive integer", v.key)
+				}
 			default:
 				return c, fmt.Errorf("unsupported model setting %q", k)
 			}

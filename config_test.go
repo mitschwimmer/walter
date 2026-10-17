@@ -16,7 +16,7 @@ func TestConfig(t *testing.T) {
 	if err != nil || c.PublicURL != "https://chat.example" || c.ImprintURL != values["WALTER_IMPRINT_URL"] || c.PrivacyURL != values["WALTER_PRIVACY_URL"] {
 		t.Fatal(c, err)
 	}
-	for _, tc := range []struct{ k, v string }{{"WALTER_PUBLIC_URL", "http://chat.example"}, {"WALTER_PUBLIC_URL", "https://chat.example/path"}, {"WALTER_QUICK_JSON", "{}"}, {"WALTER_QUICK_JSON", `{"model":"override"}`}, {"WALTER_THOUGHTFUL_JSON", "null"}, {"WALTER_SESSION_TTL", "0s"}, {"WALTER_MAX_OUTPUT_TOKENS", "0"}, {"WALTER_ALLOWED_GROUPS", ","}, {"WALTER_LLAMA_ENDPOINT", "file:///etc/passwd"}, {"WALTER_MODEL", ""}} {
+	for _, tc := range []struct{ k, v string }{{"WALTER_PUBLIC_URL", "http://chat.example"}, {"WALTER_PUBLIC_URL", "https://chat.example/path"}, {"WALTER_QUICK_JSON", "{}"}, {"WALTER_QUICK_JSON", `{"model":"override"}`}, {"WALTER_THOUGHTFUL_JSON", "null"}, {"WALTER_QUICK_JSON", `{"max_tokens":0}`}, {"WALTER_QUICK_JSON", `{"max_tokens":-1}`}, {"WALTER_QUICK_JSON", `{"max_tokens":1.5}`}, {"WALTER_QUICK_JSON", `{"max_tokens":"2048"}`}, {"WALTER_SESSION_TTL", "0s"}, {"WALTER_MAX_OUTPUT_TOKENS", "0"}, {"WALTER_ALLOWED_GROUPS", ","}, {"WALTER_LLAMA_ENDPOINT", "file:///etc/passwd"}, {"WALTER_MODEL", ""}} {
 		t.Run(tc.k+tc.v, func(t *testing.T) {
 			t.Setenv(tc.k, tc.v)
 			if _, err := config(); err == nil {

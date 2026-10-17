@@ -94,33 +94,39 @@ before the HTTP server finishes shutdown.
 | `WALTER_IMPRINT_URL` | Optional HTTPS URL for the **Impressum** footer link |
 | `WALTER_PRIVACY_URL` | Optional HTTPS URL for the **Datenschutz** footer link |
 | `WALTER_MODEL` | Required model alias verified in the inference catalog |
-| `WALTER_QUICK_JSON` | Required nonempty JSON object of verified model settings |
-| `WALTER_THOUGHTFUL_JSON` | Required nonempty JSON object of verified model settings |
+| `WALTER_QUICK_JSON` | Optional replacement profile for **schnell**; defaults below |
+| `WALTER_THOUGHTFUL_JSON` | Optional replacement profile for **bedacht**; defaults below |
 | `WALTER_LLAMA_ENDPOINT` | Required full private chat completions URL |
 | `WALTER_LISTEN` | `127.0.0.1:8080`; select a private interface for a separate Caddy guest |
 | `WALTER_DATA_DIR` | `data`; use an absolute persistent volume path in production |
 | `WALTER_GENERATION_TIMEOUT` | `2h`, includes cold model loading and streaming |
 | `WALTER_SESSION_TTL` | `12h`, also bounded by the ID token expiry |
 | `WALTER_MAX_HISTORY_BYTES` | `48000`, rejects additional messages rather than silently truncating |
-| `WALTER_MAX_OUTPUT_TOKENS` | `4096` |
+| `WALTER_MAX_OUTPUT_TOKENS` | `4096`; fallback when a profile omits `max_tokens` |
 
 Model settings allow `reasoning_effort`, `chat_template_kwargs`, `temperature`,
-`top_p`, `top_k`, and `min_p`. The adapter always requests
+`top_p`, `top_k`, `min_p`, `presence_penalty`, `repeat_penalty`, and `max_tokens`
+(a positive integer). A profile's `max_tokens` takes precedence over
+`WALTER_MAX_OUTPUT_TOKENS`. The adapter always requests streaming and
 `reasoning_format: deepseek`, so reasoning is separated upstream and discarded,
 not displayed or stored. Never use the raw `none` reasoning format.
 
-The installed GGUF and chat template determine which thinking flags work.
-Both profiles are required instead of assigning unverified defaults.
-A **candidate to verify**, not an accepted model configuration, is:
+The default profiles target `qwen38-chat`. Set `WALTER_MODEL=qwen38-chat` and
+leave the profile variables unset to use these defaults. Existing nonempty
+profile variables replace the whole corresponding profile; remove them or
+update them to the values below to adopt the new settings.
 
 ```text
-WALTER_QUICK_JSON={"reasoning_effort":"none","chat_template_kwargs":{"enable_thinking":false}}
-WALTER_THOUGHTFUL_JSON={"chat_template_kwargs":{"enable_thinking":true}}
+WALTER_MODEL=qwen38-chat
+WALTER_QUICK_JSON={"chat_template_kwargs":{"enable_thinking":false,"preserve_thinking":false},"temperature":0.7,"top_p":0.8,"top_k":20,"min_p":0.0,"presence_penalty":1.5,"repeat_penalty":1.0,"max_tokens":2048}
+WALTER_THOUGHTFUL_JSON={"chat_template_kwargs":{"enable_thinking":true,"preserve_thinking":false,"reasoning_effort":"medium"},"temperature":1.0,"top_p":0.95,"top_k":20,"min_p":0.0,"presence_penalty":0.0,"repeat_penalty":1.0,"max_tokens":8192}
 ```
 
-Test both against the installed template, confirm the answer stream has no
-reasoning tags, check answer quality and token limits, then supply the accepted
-profiles. A byte budget is not a tokenizer/context guarantee: keep history and
+The installed GGUF and chat template determine which thinking flags work.
+Test both modes against the installed template, confirm the answer stream has no
+reasoning tags, and check answer quality and token limits. Walter includes its
+German system prompt and eligible conversation history in `messages`.
+A byte budget is not a tokenizer/context guarantee: keep history and
 output limits comfortably below the model's configured context. The backend
 retains the conversation's original model alias and refuses generation if that
 alias no longer matches configuration.
