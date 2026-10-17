@@ -46,6 +46,24 @@ Optional browser parser regression test (Node is only a test tool):
 node tests/sse.test.mjs
 ```
 
+Footer links appear when their URLs are configured, including on the login page.
+Supply your actual operator/privacy pages; Walter does not generate legal text.
+
+The optional browser regression suite uses Playwright against a local fixture
+server, without an authentication bypass in Walter. Install Playwright in a
+separate test-tools directory and point the suite at it:
+
+```sh
+npm install --prefix ../walter-ui-tools playwright@1.62.1
+../walter-ui-tools/node_modules/.bin/playwright install chromium
+WALTER_PLAYWRIGHT_MODULE="$(realpath ../walter-ui-tools/node_modules/playwright)" node tests/ui.test.mjs
+```
+
+`WALTER_BROWSER_EXECUTABLE` can select an existing Chromium binary, and
+`WALTER_SCREENSHOT_DIR` optionally captures desktop/mobile views. The suite
+covers both modes, streaming, follow-ups, stop, history, deep links, deletion,
+submission failures, session expiry and responsive overflow.
+
 Serve through Caddy on HTTPS; there is deliberately no authentication bypass or
 insecure-cookie development mode. `/healthz` only proves that the app is running,
 not inference availability. Startup fails if OIDC discovery or storage recovery
@@ -62,6 +80,8 @@ before the HTTP server finishes shutdown.
 | `WALTER_OIDC_CLIENT_SECRET` | Runtime secret; use this or the file setting, never both |
 | `WALTER_OIDC_CLIENT_SECRET_FILE` | Path to a mounted secret file; preferred for OCI |
 | `WALTER_ALLOWED_GROUPS` | `walter-users`, exact comma-separated claim values |
+| `WALTER_IMPRINT_URL` | Optional HTTPS URL for the **Impressum** footer link |
+| `WALTER_PRIVACY_URL` | Optional HTTPS URL for the **Datenschutz** footer link |
 | `WALTER_MODEL` | Required model alias verified in the inference catalog |
 | `WALTER_QUICK_JSON` | Required nonempty JSON object of verified model settings |
 | `WALTER_THOUGHTFUL_JSON` | Required nonempty JSON object of verified model settings |
@@ -96,7 +116,14 @@ alias no longer matches configuration.
 
 ## Behavior and interruption policy
 
-- Language and thinking mode are fixed per conversation. UI text stays German.
+- Walter answers in German. There is no language selector; old conversation files
+  remain readable, including those previously marked English.
+- The start page submits the first question directly using **schnell** or
+  **bedacht**. The chosen thinking mode stays fixed for follow-up questions.
+- The menu opens **Historie** as a separate view. Conversation URLs use
+  `#gespraech/<id>` and can be bookmarked; the logo or **Neue Frage** returns
+  to the start page. History, login and deletion confirmation share the same
+  responsive layout. Navigation is locked while generating or saving a reply.
 - Titles use the first 60 Unicode characters of the first submitted message.
 - One generation per user; different users may generate concurrently. Deleting
   any chat while that user has a generation running returns 409.

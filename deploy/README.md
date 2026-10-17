@@ -51,7 +51,7 @@ groups array containing the groups explicitly authorized for Walter. Set
 `WALTER_LLAMA_ENDPOINT` is required: supply the full private chat completions URL.
 Verify the model alias, context size and thinking flags against the installed
 GGUF/template. Both thinking profiles are deliberately required. Test answer
-text and separated reasoning for both languages and both thinking modes.
+German text and separated reasoning for both thinking modes.
 
 ## HTTPS proxy
 

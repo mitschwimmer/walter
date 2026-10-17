@@ -15,6 +15,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/walter-ui-tools" --no-audit --no-fund playwright@1.62.1
+          "$RUNNER_TEMP/walter-ui-tools/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check views and interactions
+        env:
+          WALTER_PLAYWRIGHT_MODULE: ${{ runner.temp }}/walter-ui-tools/node_modules/playwright
+          WALTER_SCREENSHOT_DIR: ${{ runner.temp }}/walter-screenshots
+        run: node tests/ui.test.mjs
+      - name: Save desktop and mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: walter-ui-screenshots
+          path: ${{ runner.temp }}/walter-screenshots
+          if-no-files-found: ignore
+          retention-days: 7
+
   image:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

@@ -1,14 +1,57 @@
 <!doctype html>
 <html lang="de">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Walter</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
-<body>
-<header><a class="brand" href="/">Walter</a><button id="logout" hidden>Abmelden</button></header>
-<section id="login" hidden><h1>Raum für Gedanken.</h1><p>Deine Gespräche, an einem Ort.</p><a class="primary" href="/auth/login">Mit Kanidm anmelden</a></section>
-<div id="workspace" hidden><aside aria-label="Gespräche"><button id="new" class="primary">＋ Neuer Chat</button><nav id="chats" aria-label="Bisherige Chats"></nav></aside>
-<main><div class="chat-heading"><div><h1 id="title">Ein neuer Gedanke?</h1><p id="meta">Starte einen Chat auf Deutsch oder Englisch.</p></div><button id="delete" hidden>Chat löschen</button></div>
-<div id="messages" role="log" aria-label="Nachrichten" aria-live="off"></div>
-<form id="composer"><label for="content">Nachricht</label><textarea id="content" rows="3" maxlength="16000" placeholder="Was möchtest du wissen?" required disabled></textarea><div class="composer-actions"><span id="activity" role="status"></span><button id="stop" type="button" hidden>Antwort stoppen</button><button id="send" class="primary" disabled>Senden</button></div></form>
-</main></div>
-<p id="error" role="alert" hidden></p>
-<dialog id="create"><form id="create-form"><h2>Neuer Chat</h2><fieldset><legend>Denkmodus</legend><label><input type="radio" name="thinking" value="quick" checked> Schnell</label><label><input type="radio" name="thinking" value="thoughtful"> Gründlich</label></fieldset><fieldset><legend>Sprache</legend><label><input type="radio" name="language" value="de" checked> Deutsch</label><label><input type="radio" name="language" value="en"> Englisch</label></fieldset><div class="dialog-actions"><button id="close" type="button">Abbrechen</button><button class="primary">Chat starten</button></div></form></dialog>
-</body></html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fafafa">
+  <title>Walter · Frag’s Pferd.</title>
+  <link rel="icon" href="/walter.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body data-view="loading">
+  <a class="skip-link" href="#main">Zum Inhalt</a>
+  <header class="site-header">
+    <a id="home" class="brand" href="#" aria-label="Walter – neue Frage"><img src="/walter.svg" alt="" width="110" height="140"></a>
+    <nav id="account-menu" aria-label="Menü" hidden>
+      <a id="new" href="#" hidden>Neue Frage</a>
+      <a id="history-link" href="#historie">Historie</a>
+      <button id="logout" type="button">Abmelden</button>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <h1 class="headline" aria-label="Frag’s Pferd. Walter weiß es."><span class="headline-line" aria-hidden="true"><span class="blue">F</span><span class="red">r</span><span class="yellow">a</span><span class="teal">g</span><span class="purple">’</span><span class="red">s</span> <span class="orange">P</span><span class="blue">f</span><span class="pink">e</span><span class="green">r</span><span class="purple">d</span><span class="blue">.</span></span><span class="headline-line" aria-hidden="true"><span class="red">W</span><span class="blue">a</span><span class="yellow">l</span><span class="purple">t</span><span class="green">e</span><span class="red">r</span> <span class="blue">w</span><span class="purple">e</span><span class="yellow">i</span><span class="blue">ß</span> <span class="green">e</span><span class="orange">s</span><span class="purple">.</span></span></h1>
+    <p id="loading" class="muted" role="status">Walter wird geladen …</p>
+    <section id="login" class="panel login-panel" aria-labelledby="login-title" hidden>
+      <h2 id="login-title">Deine nächste Frage?</h2>
+      <p>Melde dich an, um Walter zu fragen und deine Gespräche wiederzufinden.</p>
+      <a class="mode thoughtful" href="/auth/login">Anmelden</a>
+    </section>
+    <section id="chat" aria-label="Gespräch mit Walter" hidden>
+      <h2 id="conversation-title" class="sr-only">Neue Frage</h2>
+      <div id="messages" role="log" aria-label="Nachrichten" aria-live="off"></div>
+      <div id="conversation-tools" hidden><span id="mode-label" class="muted"></span><button id="delete" type="button">Gespräch löschen</button></div>
+      <form id="composer">
+        <label id="composer-label" class="sr-only" for="content">Deine Frage</label>
+        <textarea id="content" rows="5" maxlength="16000" placeholder="Was möchtest du wissen?" required disabled></textarea>
+        <div class="composer-actions">
+          <span id="activity" role="status"></span>
+          <button id="stop" class="stop" type="button" hidden>Antwort stoppen</button>
+          <button id="quick" class="mode quick" name="thinking" value="quick" title="Schnell antworten" disabled>schnell</button>
+          <button id="thoughtful" class="mode thoughtful" name="thinking" value="thoughtful" title="Bedacht antworten" disabled>bedacht</button>
+        </div>
+      </form>
+      <p id="draft-hint" class="muted" hidden>Deine Frage bleibt im Eingabefeld. Prüfe das Gespräch vor einem erneuten Senden.</p>
+    </section>
+    <section id="history" aria-labelledby="history-title" hidden>
+      <div class="view-heading"><h2 id="history-title" tabindex="-1">Historie</h2><a href="#" class="text-link">Neue Frage ↗</a></div>
+      <p id="history-status" class="muted" role="status"></p>
+      <ul id="chats" class="conversation-list"></ul>
+    </section>
+  </main>
+  <footer id="footer" class="site-footer" aria-label="Rechtliches" hidden><a id="imprint" hidden>Impressum</a><a id="privacy" hidden>Datenschutz</a></footer>
+  <div id="error" class="error" role="alert" hidden><p id="error-message"></p><button id="dismiss-error" type="button" aria-label="Fehlermeldung schließen">×</button></div>
+  <dialog id="delete-dialog" aria-labelledby="delete-title"><form method="dialog"><h2 id="delete-title">Gespräch löschen?</h2><p>Das Gespräch wird endgültig gelöscht.</p><div class="dialog-actions"><button value="cancel" autofocus>Behalten</button><button id="confirm-delete" class="danger" value="delete">Löschen</button></div></form></dialog>
+  <noscript><p class="panel">Bitte aktiviere JavaScript, um Walter zu nutzen.</p></noscript>
+</body>
+</html>

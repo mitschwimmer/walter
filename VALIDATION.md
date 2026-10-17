@@ -48,3 +48,19 @@ Validated with Go 1.25.3 on linux/amd64:
 
 Not run: a full Nix build (Nix is unavailable), browser visual/interaction checks
 (Chromium is unavailable and the browser download failed), or live inference.
+
+## German UI redesign (2026-10-16)
+
+- Go 1.25.3 tests, vet, race detector and CGo-free release build passed.
+- Node SSE regressions, JavaScript syntax and whitespace checks passed.
+- Added API coverage for German-only conversation creation, legacy conversation
+  metadata, optional HTTPS footer URLs and the public site-links endpoint.
+- Added a Playwright fixture-server suite for both submission modes, streamed and
+  reopened replies, follow-ups, stop, history, deletion/cancellation, retry,
+  session expiry, logout and narrow-screen overflow. CI runs it separately and
+  retains desktop/mobile screenshots for review.
+
+Local browser execution is blocked: Chromium exits during startup in the
+restricted workspace. Browser interaction/layout results must come from CI;
+this is not recorded as a local browser pass. No live OIDC/inference or Nix
+package deployment was performed for this change.

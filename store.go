@@ -26,7 +26,6 @@ type Message struct {
 type Conversation struct {
 	ID       string    `json:"id"`
 	Title    string    `json:"title"`
-	Language string    `json:"language"`
 	Thinking string    `json:"thinking"`
 	Model    string    `json:"model"`
 	Created  time.Time `json:"created_at"`
