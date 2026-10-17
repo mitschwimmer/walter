@@ -32,10 +32,21 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .site-header nav a[aria-current="page"] { text-decoration: underline; text-underline-offset: 7px; }
 main { flex: 1; padding-top: 94px; padding-bottom: 90px; }
 main:focus { outline: none; }
-.headline { font-size: clamp(44px, 10.2vw, 112px); font-weight: 400; line-height: 1.02; letter-spacing: -.065em; margin: 0 0 64px; }
-.headline-line { display: block; white-space: nowrap; }
-.blue { color: #0960f5; } .red { color: #f03819; } .yellow { color: #ffbc27; } .teal { color: #267d8b; }
-.purple { color: #8855df; } .orange { color: #ff801e; } .pink { color: #ef74a0; } .green { color: #339363; }
+.headline { width: fit-content; max-width: 100%; white-space: nowrap; color: #0968fb; font-size: clamp(44px, 10.2vw, 112px); font-weight: 400; line-height: 1.02; letter-spacing: -.065em; margin: 0 0 64px; }
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .headline {
+    background-image: url('/headline-overlay.svg'), linear-gradient(90deg, #0968fb 0%, #ff4c16 16%, #ffbe29 29%, #0a858a 43%, #f65673 57%, #1663ea 69%, #f9a914 79%, #248e69 90%, #7a45dd 100%);
+    background-size: 100% 100%, 100% 100%;
+    background-repeat: no-repeat;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+@media (forced-colors: active) {
+  .headline { background: none; color: CanvasText; -webkit-text-fill-color: CanvasText; }
+}
 .panel, .message, textarea, .conversation-list li { background: var(--panel); box-shadow: var(--shadow); }
 .panel { padding: 32px; border-left: 10px solid var(--line); }
 h2 { font-size: 26px; font-weight: 500; line-height: 1.25; margin: 0 0 20px; }
