@@ -87,9 +87,11 @@ body[data-view="conversation"] textarea { min-height: 130px; }
 .view-heading h2 { font-size: 30px; margin: 0; }
 .text-link { font-size: 15px; }
 .conversation-list { list-style: none; margin: 0; padding: 0; }
-.conversation-list li { margin-bottom: 18px; border-left: 10px solid var(--line); }
-.conversation-list a { display: block; padding: 22px 24px; }
+.conversation-list li { display: flex; align-items: center; margin-bottom: 18px; border-left: 10px solid var(--line); }
+.conversation-list a { display: block; flex: 1; min-width: 0; padding: 22px 24px; }
 .conversation-list a:hover { background: #f4f4f4; }
+.conversation-list .delete-conversation { flex-shrink: 0; margin-right: 24px; padding: 12px 0; border: 0; background: none; color: #b02e1d; font: 14px ui-monospace, monospace; }
+.conversation-list .delete-conversation:hover { text-decoration: underline; text-underline-offset: 4px; }
 .conversation-list .conversation-title { display: block; overflow-wrap: anywhere; }
 .conversation-list time { display: block; margin-top: 7px; font-size: 14px; color: var(--muted); }
 .site-footer { display: flex; align-items: center; justify-content: center; gap: 52px; font-size: 18px; padding-block: 48px 100px; }
@@ -125,5 +127,6 @@ dialog::backdrop { background: #0005; }
   .site-footer { padding-block: 32px 44px; gap: 32px; font-size: 14px; }
   .view-heading h2 { font-size: 25px; }
   .conversation-list a { padding: 18px; }
+  .conversation-list .delete-conversation { margin-right: 18px; }
 }
 @media (prefers-reduced-motion: no-preference) { button, a { transition: background-color .15s, opacity .15s; } }

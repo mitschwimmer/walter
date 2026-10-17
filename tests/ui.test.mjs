@@ -9,7 +9,7 @@ import { once } from 'node:events';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.WALTER_PLAYWRIGHT_MODULE || 'playwright');
 const root = fileURLToPath(new URL('../web/', import.meta.url));
-let signedIn = true, expireNext = false, rejectNext = false, sequence = 0;
+let signedIn = true, expireNext = false, rejectNext = false, rejectDelete = false, sequence = 0;
 const conversations = new Map(), submissions = [], creations = [];
 const answer = '<p>Marmelade ist ein süßer Aufstrich aus Früchten und Zucker.</p><h2>Wichtige Merkmale</h2><ul><li>Früchte</li><li>Zucker</li></ul><p><strong>Gut zu wissen:</strong> Walter kann auch Tabellen und Code darstellen.</p><table><thead><tr><th>Zutat</th><th>Menge</th></tr></thead><tbody><tr><td>Früchte</td><td>1 kg</td></tr></tbody></table><pre><code>&lt;script&gt;kein ausführbarer Code&lt;/script&gt;\n' + 'langes_wort_'.repeat(30) + '</code></pre>';
 const json = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
@@ -44,7 +44,10 @@ const server = createServer(async (req, res) => {
     const c = match && conversations.get(match[1]);
     if (!c) return json(res, 404, { error: 'Gespräch nicht gefunden.' });
     if (req.method === 'GET') return json(res, 200, c);
-    if (req.method === 'DELETE') { conversations.delete(c.id); res.writeHead(204); return res.end(); }
+    if (req.method === 'DELETE') {
+      if (rejectDelete) { rejectDelete = false; return json(res, 503, { error: 'Löschen fehlgeschlagen.' }); }
+      conversations.delete(c.id); res.writeHead(204); return res.end();
+    }
     if (rejectNext) { rejectNext = false; return json(res, 503, { error: 'Bitte später erneut versuchen.' }); }
     submissions.push(body.content);
     c.title = body.content.slice(0, 60);
@@ -74,6 +77,7 @@ const page = await browser.newPage({ viewport: { width: 1071, height: 1579 } });
 page.on('pageerror', e => errors.push(e.message));
 const state = name => page.waitForFunction(name => document.body.dataset.view === name, name);
 const idle = () => page.waitForFunction(() => document.querySelector('#composer').getAttribute('aria-busy') === 'false' && !document.querySelector('#content').disabled);
+const inputFocused = () => page.waitForFunction(() => document.activeElement === document.querySelector('#content'));
 async function screenshot(name) {
   if (!process.env.WALTER_SCREENSHOT_DIR) return;
   await mkdir(process.env.WALTER_SCREENSHOT_DIR, { recursive: true });
@@ -83,6 +87,7 @@ async function noOverflow() { assert.ok(await page.evaluate(() => document.docum
 try {
   await page.goto(origin);
   await state('start');
+  await inputFocused();
   assert.equal(await page.locator('aside').count(), 0);
   await page.locator('#content').fill('Was ist Marmelade?');
   await screenshot('start-desktop');
@@ -139,6 +144,7 @@ try {
   await screenshot('history-empty');
   await page.locator('#new').click();
   await state('start');
+  await inputFocused();
   rejectNext = true;
   await page.locator('#content').fill('Frage bleibt erhalten');
   await page.locator('#quick').click();
@@ -158,6 +164,7 @@ try {
   }
   await page.locator('#new').click();
   await state('start');
+  await inputFocused();
   await page.setViewportSize({ width: 390, height: 844 });
   await noOverflow();
   await screenshot('start-mobile');
@@ -165,6 +172,44 @@ try {
   await state('history');
   await noOverflow();
   await screenshot('history-mobile');
+  // Delete without opening the conversation, including cancellation and errors.
+  const retained = [...conversations.keys()][0];
+  const removable = { id: String(++sequence).padStart(32, '0'), title: 'Nur dieses Gespräch', thinking: 'quick', updated_at: '2026-10-16T18:00:00Z', messages: [] };
+  conversations.set(removable.id, removable);
+  await page.locator('#history-link').click();
+  await page.waitForFunction(() => document.querySelectorAll('#chats li').length === 2);
+  const remove = page.getByRole('button', { name: 'Löschen: Nur dieses Gespräch', exact: true });
+  await remove.click();
+  await page.getByRole('button', { name: 'Behalten', exact: true }).click();
+  assert.equal(conversations.size, 2);
+  rejectDelete = true;
+  await remove.click();
+  await page.locator('#confirm-delete').click();
+  await page.waitForSelector('#error:not([hidden])');
+  assert.equal(conversations.size, 2);
+  assert.equal(await page.locator('#chats li').count(), 2);
+  await page.locator('#dismiss-error').click();
+  await remove.click();
+  await page.locator('#confirm-delete').click();
+  await page.waitForFunction(() => document.querySelectorAll('#chats li').length === 1);
+  assert.ok(conversations.has(retained));
+  assert.ok(!conversations.has(removable.id));
+  assert.equal(new URL(page.url()).hash, '#historie');
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await noOverflow();
+  }
+  await page.locator('#chats button').click();
+  await page.locator('#confirm-delete').click();
+  await page.waitForFunction(() => document.querySelector('#history-status').textContent.startsWith('Hier findest'));
+  assert.equal(conversations.size, 0);
+  await page.locator('#history .text-link').click();
+  await state('start');
+  await inputFocused();
+  await page.locator('#home').click();
+  await inputFocused();
+  await page.locator('#history-link').click();
+  await state('history');
   expireNext = true;
   await page.locator('#history-link').click();
   await state('login');
@@ -174,6 +219,7 @@ try {
   signedIn = true;
   await page.goto(origin);
   await state('start');
+  await inputFocused();
   await page.locator('#logout').click();
   await state('login');
   assert.equal(signedIn, false);
