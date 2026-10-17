@@ -63,7 +63,7 @@ type upstreamStatusError struct{ status int }
 func (e *upstreamStatusError) Error() string { return fmt.Sprintf("inference status %d", e.status) }
 
 func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) error) error {
-	messages := []map[string]string{{"role": "system", "content": "Respond in German."}}
+	messages := []map[string]string{{"role": "system", "content": "Antworte auf Deutsch. Sprich die nutzende Person immer mit „du“ an. Verwende „du“, „dir“, „dich“ und „dein“ statt der förmlichen Sie-Anrede."}}
 	for _, m := range c.Messages {
 		if m.Role == "user" || (m.Role == "assistant" && m.Status == "complete") {
 			messages = append(messages, map[string]string{"role": m.Role, "content": m.Content})
