@@ -11,6 +11,7 @@ const { chromium } = require(process.env.WALTER_PLAYWRIGHT_MODULE || 'playwright
 const root = fileURLToPath(new URL('../web/', import.meta.url));
 let signedIn = true, expireNext = false, rejectNext = false, rejectDelete = false, sequence = 0;
 let footerLinks = true;
+let releaseAnswer;
 const conversations = new Map(), submissions = [], creations = [];
 const answer = '<p>Marmelade ist ein süßer Aufstrich aus Früchten und Zucker.</p><h2>Wichtige Merkmale</h2><ul><li>Früchte</li><li>Zucker</li></ul><p><strong>Gut zu wissen:</strong> Walter kann auch Tabellen und Code darstellen.</p><table><thead><tr><th>Zutat</th><th>Menge</th></tr></thead><tbody><tr><td>Früchte</td><td>1 kg</td></tr></tbody></table><pre><code>&lt;script&gt;kein ausführbarer Code&lt;/script&gt;\n' + 'langes_wort_'.repeat(30) + '</code></pre>';
 const json = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
@@ -57,6 +58,11 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const event = (name, data) => res.write(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
     event('start', {});
+    if (releaseAnswer === null) {
+      await new Promise(resolve => { releaseAnswer = resolve; });
+      releaseAnswer = undefined;
+      if (res.destroyed) return;
+    }
     event('snapshot', { html: reply.html });
     const update = setTimeout(() => { reply.html = '<p><strong>Marmelade</strong> ist ein Aufstrich.</p>'; event('snapshot', { html: reply.html }); }, 100);
     const finish = setTimeout(() => {
@@ -94,8 +100,32 @@ try {
   assert.equal(await page.locator('aside').count(), 0);
   await page.locator('#content').fill('Was ist Marmelade?');
   await screenshot('start-desktop');
+  releaseAnswer = null;
   await page.locator('#thoughtful').click();
   await state('conversation');
+  const loader = page.locator('.response-loader');
+  await loader.waitFor({ state: 'visible' });
+  assert.equal(await loader.getAttribute('aria-label'), 'Walter bereitet die Antwort vor.');
+  assert.equal(await page.locator('.assistant small').count(), 0);
+  assert.equal(await page.locator('#activity').getAttribute('class'), 'sr-only');
+  assert.equal(await loader.evaluate(el => getComputedStyle(el, '::before').animationName), 'loader-draw, loader-shift');
+  const centered = await loader.evaluate(el => {
+    const loaderBox = el.getBoundingClientRect();
+    const contentBox = el.parentElement.getBoundingClientRect();
+    return Math.abs(loaderBox.x + loaderBox.width / 2 - contentBox.x - contentBox.width / 2) < 1;
+  });
+  assert.ok(centered, 'loader is centered in the reply');
+  await screenshot('waiting-desktop');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  assert.equal(await loader.evaluate(el => getComputedStyle(el, '::before').animationName), 'none');
+  await page.setViewportSize({ width: 320, height: 844 });
+  await noOverflow();
+  await screenshot('waiting-mobile-reduced-motion');
+  await page.setViewportSize({ width: 1071, height: 1579 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  releaseAnswer();
+  await page.locator('.assistant p').waitFor();
+  assert.equal(await loader.count(), 0);
   assert.equal(await page.locator('#stop').isVisible(), true);
   await page.locator('#history-link').dispatchEvent('click');
   await state('conversation'); // Navigation is locked until persistence finishes.
