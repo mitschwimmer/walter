@@ -85,7 +85,7 @@ func TestInference(t *testing.T) {
 					t.Error(v)
 				}
 				messages := v["messages"].([]any)
-				if messages[0].(map[string]any)["role"] != "system" || messages[0].(map[string]any)["content"] != "Antworte auf Deutsch. Sprich die nutzende Person immer mit „du“ an. Verwende „du“, „dir“, „dich“ und „dein“ statt der förmlichen Sie-Anrede." {
+				if messages[0].(map[string]any)["role"] != "system" || messages[0].(map[string]any)["content"] != systemPrompt {
 					t.Error(messages)
 				}
 				w.Header().Set("Content-Type", "text/event-stream")
