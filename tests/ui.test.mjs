@@ -232,6 +232,7 @@ try {
   assert.equal(await page.locator('#context-info').isVisible(), false);
   contextQuick = 4096;
   contextThoughtful = 8192;
+  await page.setViewportSize({ width: 1071, height: 1579 });
   await page.goto(conversationURL);
   await state('conversation');
   await idle();
