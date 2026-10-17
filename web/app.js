@@ -84,11 +84,33 @@ function show(c) {
   view(c.messages.length ? 'conversation' : 'start');
   updateComposer();
 }
+function contextFull(mode) {
+  const usage = current?.context;
+  return usage?.capacity > 0 && Number.isInteger(usage[mode]) && usage[mode] >= usage.capacity;
+}
+function updateContext(unavailable) {
+  const completed = current?.messages.at(-1)?.status === 'complete' && current.messages.at(-1)?.role === 'assistant';
+  $('context-info').hidden = unavailable || !completed;
+  const usage = current?.context;
+  const used = usage?.[current?.thinking];
+  const format = new Intl.NumberFormat('de-DE');
+  $('context-info').textContent = usage?.capacity > 0 && Number.isInteger(used)
+    ? `Kontext: ${Math.min(100, Math.floor(100 * used / usage.capacity))}% · ${format.format(used)} / ${format.format(usage.capacity)} Tokens`
+    : 'Kontext: unbekannt';
+  $('context-full').hidden = unavailable || !contextFull('quick') || !contextFull('thoughtful');
+}
 function busy(value) {
   const unavailable = value || recovering || !!current?.messages.some(m => m.status === 'pending');
-  $('prompt-input').hidden = unavailable;
+  const full = contextFull('quick') && contextFull('thoughtful');
+  $('prompt-input').hidden = unavailable || full;
+  updateContext(unavailable);
   for (const id of ['quick', 'thoughtful']) $(id).hidden = unavailable;
   for (const id of ['quick', 'thoughtful', 'delete', 'content', 'logout', 'confirm-delete']) $(id).disabled = unavailable;
+  $('content').disabled = unavailable || full;
+  for (const mode of ['quick', 'thoughtful']) {
+    $(mode).disabled = unavailable || contextFull(mode);
+    $(mode).title = contextFull(mode) ? 'Kontext voll – bitte eine neue Frage starten.' : mode === 'quick' ? 'Schnell antworten' : 'Bedacht antworten';
+  }
   $('chats').querySelectorAll('button').forEach(button => button.disabled = value || recovering);
   for (const id of ['home', 'new', 'history-link']) {
     if (value || recovering) $(id).setAttribute('aria-disabled', 'true');
@@ -241,6 +263,7 @@ $('composer').onsubmit = async e => {
   const text = $('content').value.trim();
   if (!text) { $('content').focus(); return; }
   const thinking = e.submitter?.value || current?.thinking || 'quick';
+  if (contextFull(thinking)) return;
   clearError();
   $('draft-hint').hidden = true;
   controller = new AbortController();

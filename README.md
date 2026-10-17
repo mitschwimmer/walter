@@ -184,6 +184,39 @@ alias no longer matches configuration.
   only original Markdown is stored and sent back to inference. User messages
   remain plain text. History is sorted by most recent activity.
 
+## Conversation context indicator
+
+After a complete answer, the follow-up controls show the retained conversation's
+context usage. The backend fetches the selected model's effective per-slot
+capacity from `/props?model=...` and counts tokens using
+`POST /v1/chat/completions/input_tokens` (or the equivalent unversioned path).
+Both modes use their actual configured profiles and the same message construction
+as inference: the system prompt, user messages and complete assistant answers.
+An empty next user turn includes the next turn's framing without counting a draft
+or accidentally continuing the last assistant answer. Discarded reasoning and
+incomplete answers are excluded. This is context occupancy, not answer progress.
+
+Measurements are refreshed when a completed conversation is opened, including
+after a reply is saved. They are hidden during generation and recovery and for
+incomplete replies; they are not persisted as a potentially stale model limit.
+The selected mode's percentage and token counts appear next to the send buttons.
+Each button is disabled only when its measured token count reaches capacity;
+when both are full, a link starts a new question. A sub-100% reading does not
+promise that an arbitrarily long next question or answer will fit.
+
+Before storing or generating a submitted question, the backend also counts the
+actual prompt for the chosen mode and rejects it with 413 if there is no room
+for an output token. This protects requests that bypass the browser controls and
+large drafts that did not fit in the displayed remaining space. The configured
+maximum output allowance is not treated as a compulsory reservation.
+
+The auxiliary calls are bounded by a shared three-second deadline per measurement
+or submission check. If metadata or token counting is unavailable, invalid or
+unsupported, the UI shows `Kontext: unbekannt` and the usual generation path
+remains available. The inference server still enforces its own limits. Auxiliary
+URLs preserve a configured reverse-proxy base path; expose `/props` and the
+input-token endpoint privately alongside chat completions for this feature.
+
 ## Authentication and trust
 
 OIDC uses authorization code, S256 PKCE, one-use state and nonce, signature,

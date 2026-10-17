@@ -37,6 +37,8 @@
           <textarea id="content" rows="5" maxlength="16000" placeholder="Was möchtest du wissen?" required disabled></textarea>
         </div>
         <div class="composer-actions">
+          <p id="context-info" class="muted" title="Gespräch einschließlich Systemprompt und nächster Nachrichtenrahmen, ohne deine nächste Frage." hidden></p>
+          <p id="context-full" class="muted" hidden>Kontext voll. <a href="#" class="text-link">Neue Frage starten ↗</a></p>
           <span id="activity" role="status"></span>
           <button id="stop" class="stop" type="button" hidden>Antwort stoppen</button>
           <button id="quick" class="mode quick" name="thinking" value="quick" title="Schnell antworten" disabled>schnell</button>

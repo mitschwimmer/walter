@@ -169,6 +169,7 @@ textarea:focus { outline: none; border-left-color: var(--focus); }
 textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; }
 body[data-view="conversation"] textarea { min-height: 130px; }
 .composer-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 64px; }
+#context-info, #context-full { flex-basis: 100%; margin: 0; text-align: right; }
 #activity { flex: 1; min-width: 140px; font-size: 14px; color: var(--muted); }
 .mode {
   border: 0; border-radius: 0; min-width: 136px; min-height: 52px; padding: 12px 22px;
