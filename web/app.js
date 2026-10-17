@@ -3,12 +3,14 @@ import { readEvents } from './sse.js';
 const $ = id => document.getElementById(id);
 let csrf, authenticated = false, current = null, controller = null;
 let routeVersion = 0, activeHash = '', recovering = false;
+let deleteTarget = null;
 
 function error(e) { $('error-message').textContent = e.message; $('error').hidden = false; }
 function clearError() { $('error').hidden = true; }
 function signedOut() {
   authenticated = false;
   current = null;
+  deleteTarget = null;
   $('messages').replaceChildren();
   $('chats').replaceChildren();
   $('content').value = '';
@@ -73,6 +75,7 @@ function show(c) {
 }
 function busy(value) {
   for (const id of ['quick', 'thoughtful', 'delete', 'content', 'logout', 'confirm-delete']) $(id).disabled = value || recovering;
+  $('chats').querySelectorAll('button').forEach(button => button.disabled = value || recovering);
   for (const id of ['home', 'new', 'history-link']) {
     if (value || recovering) $(id).setAttribute('aria-disabled', 'true');
     else $(id).removeAttribute('aria-disabled');
@@ -100,7 +103,14 @@ async function refreshHistory(version) {
     const updated = new Date(c.updated_at);
     date.textContent = Number.isNaN(updated.valueOf()) ? '' : dates.format(updated);
     link.append(title, date);
-    item.append(link);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'delete-conversation';
+    remove.textContent = 'Löschen';
+    remove.setAttribute('aria-label', `Löschen: ${c.title}`);
+    remove.disabled = !!controller || recovering;
+    remove.onclick = () => confirmDelete(c);
+    item.append(link, remove);
     $('chats').append(item);
   }
 }
@@ -126,13 +136,14 @@ async function route() {
       if (version !== routeVersion || !authenticated) return;
       $('content').value = '';
       show(c);
-      $('main').focus({ preventScroll: true });
+      $(c.messages.length ? 'main' : 'content').focus({ preventScroll: true });
     } else {
       current = null;
       $('messages').replaceChildren();
       $('content').value = '';
       view('start');
       updateComposer();
+      $('content').focus({ preventScroll: true });
       if (location.hash && location.hash !== '#main') history.replaceState(null, '', location.pathname);
       activeHash = location.hash;
     }
@@ -161,16 +172,33 @@ for (const id of ['home', 'new', 'history-link']) {
   });
 }
 $('dismiss-error').onclick = clearError;
-$('delete').onclick = () => $('delete-dialog').showModal();
+function confirmDelete(conversation) {
+  if (!conversation || controller || recovering) return;
+  deleteTarget = conversation;
+  $('delete-dialog').returnValue = '';
+  $('delete-dialog').querySelector('p').textContent = `„${conversation.title}“ wird endgültig gelöscht.`;
+  $('delete-dialog').showModal();
+}
+$('delete').onclick = () => confirmDelete(current);
 $('delete-dialog').addEventListener('close', async () => {
-  if ($('delete-dialog').returnValue !== 'delete' || !current || controller || recovering) return;
-  $('delete').disabled = true;
+  const target = deleteTarget;
+  deleteTarget = null;
+  if ($('delete-dialog').returnValue !== 'delete' || !target || !authenticated || controller || recovering) return;
+  recovering = true;
+  busy(false);
   try {
-    await api(`/api/conversations/${current.id}`, { method: 'DELETE' });
-    current = null;
-    location.hash = 'historie';
+    await api(`/api/conversations/${target.id}`, { method: 'DELETE' });
+    if (current?.id === target.id) {
+      current = null;
+      $('messages').replaceChildren();
+    }
+    if (location.hash === '#historie') {
+      await refreshHistory(routeVersion);
+      if (authenticated) $('history-title').focus({ preventScroll: true });
+    }
+    else location.hash = 'historie';
   } catch (e) { error(e); }
-  finally { busy(false); }
+  finally { recovering = false; busy(false); }
 });
 $('stop').onclick = () => controller?.abort();
 $('logout').onclick = async () => {
