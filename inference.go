@@ -89,14 +89,21 @@ QUALITÄTSKONTROLLE
 - Ersetze unpassende Anglizismen durch idiomatische deutsche Ausdrücke.
 - Gib ausschließlich die fertige Antwort aus.`
 
-func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) error) error {
+// Only aggregate progress leaves the adapter; reasoning text is never forwarded.
+type inferenceProgress struct {
+	Phase   string `json:"phase"`
+	Percent int    `json:"percent,omitempty"`
+	Tokens  int    `json:"tokens,omitempty"`
+}
+
+func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) error, progress func(inferenceProgress) error) error {
 	messages := []map[string]string{{"role": "system", "content": systemPrompt}}
 	for _, m := range c.Messages {
 		if m.Role == "user" || (m.Role == "assistant" && m.Status == "complete") {
 			messages = append(messages, map[string]string{"role": m.Role, "content": m.Content})
 		}
 	}
-	payload := map[string]any{"model": c.Model, "messages": messages, "stream": true, "reasoning_format": "deepseek", "max_tokens": a.cfg.MaxOutput}
+	payload := map[string]any{"model": c.Model, "messages": messages, "stream": true, "reasoning_format": "deepseek", "max_tokens": a.cfg.MaxOutput, "return_progress": true, "timings_per_token": true}
 	settings := a.cfg.Quick
 	if c.Thinking == "thoughtful" {
 		settings = a.cfg.Thoughtful
@@ -128,6 +135,20 @@ func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) err
 	finished := false
 	answer := false
 	size := 0
+	var lastProgress inferenceProgress
+	var lastProgressAt time.Time
+	report := func(p inferenceProgress) error {
+		if progress == nil || answer || p == lastProgress {
+			return nil
+		}
+		// Reasoning can produce many tokens per second. Report activity at most
+		// ten times per second, but always report a phase transition immediately.
+		if p.Phase == "thinking" && lastProgress.Phase == p.Phase && time.Since(lastProgressAt) < 100*time.Millisecond {
+			return nil
+		}
+		lastProgress, lastProgressAt = p, time.Now()
+		return progress(p)
+	}
 	err = consumeSSE(resp.Body, func(data string) error {
 		if data == "[DONE]" {
 			if !finished || !answer {
@@ -136,10 +157,18 @@ func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) err
 			return errDone
 		}
 		var v struct {
-			Error   json.RawMessage `json:"error"`
+			Error          json.RawMessage `json:"error"`
+			PromptProgress *struct {
+				Total     int `json:"total"`
+				Processed int `json:"processed"`
+			} `json:"prompt_progress"`
+			Timings struct {
+				Predicted int `json:"predicted_n"`
+			} `json:"timings"`
 			Choices []struct {
 				Delta struct {
-					Content string `json:"content"`
+					Content   string `json:"content"`
+					Reasoning string `json:"reasoning_content"`
 				} `json:"delta"`
 				Finish *string `json:"finish_reason"`
 			} `json:"choices"`
@@ -150,7 +179,21 @@ func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) err
 		if len(v.Error) > 0 && string(v.Error) != "null" {
 			return errors.New("upstream stream error")
 		}
+		if p := v.PromptProgress; p != nil && p.Total > 0 && p.Processed >= 0 && p.Processed <= p.Total && lastProgress.Phase != "thinking" {
+			percent := int(100 * float64(p.Processed) / float64(p.Total))
+			if lastProgress.Phase != "prefill" || percent >= lastProgress.Percent {
+				if err := report(inferenceProgress{Phase: "prefill", Percent: percent}); err != nil {
+					return err
+				}
+			}
+		}
 		for _, choice := range v.Choices {
+			if choice.Delta.Reasoning != "" {
+				tokens := max(0, v.Timings.Predicted, lastProgress.Tokens)
+				if err := report(inferenceProgress{Phase: "thinking", Tokens: tokens}); err != nil {
+					return err
+				}
+			}
 			if choice.Finish != nil {
 				if *choice.Finish != "stop" {
 					return errors.New("inference truncated or failed")
@@ -245,6 +288,8 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 	if err = event(w, "start", map[string]string{"message_id": reply.ID}); err == nil {
 		err = a.streamReply(ctx, c, reply, func(html string) error {
 			return event(w, "snapshot", map[string]string{"html": html})
+		}, func(p inferenceProgress) error {
+			return event(w, "progress", p)
 		})
 	}
 	reply.Status = "complete"
