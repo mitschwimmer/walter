@@ -47,8 +47,15 @@ function bubble(m) {
   // Only the backend's restricted Markdown renderer produces this HTML.
   if (m.role === 'assistant' && typeof m.html === 'string') body.innerHTML = m.html;
   else body.textContent = m.content;
+  if (m.role === 'assistant' && m.status === 'pending' && !body.hasChildNodes()) {
+    const loader = document.createElement('div');
+    loader.className = `response-loader turn-${Math.floor(Math.random() * 4)} tempo-${Math.floor(Math.random() * 3)} tone-${Math.floor(Math.random() * 3)}`;
+    loader.setAttribute('role', 'status');
+    loader.setAttribute('aria-label', 'Walter bereitet die Antwort vor.');
+    body.append(loader);
+  }
   section.append(body);
-  if (m.status !== 'complete') {
+  if (m.status !== 'complete' && m.status !== 'pending') {
     const status = document.createElement('small');
     status.textContent = { pending: 'Wird erstellt …', partial: 'Unvollständige Antwort', cancelled: 'Abgebrochen', failed: 'Fehlgeschlagen' }[m.status] || 'Unvollständige Antwort';
     section.append(status);
@@ -83,6 +90,7 @@ function busy(value) {
   $('stop').hidden = !value;
   $('composer').setAttribute('aria-busy', String(value));
   $('activity').textContent = value ? 'Walter antwortet …' : recovering ? 'Gespräch wird geladen …' : '';
+  $('activity').classList.toggle('sr-only', value);
 }
 const dates = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
 async function refreshHistory(version) {
