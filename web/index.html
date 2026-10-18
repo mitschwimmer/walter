@@ -34,7 +34,8 @@
       <form id="composer">
         <div id="prompt-input">
           <label id="composer-label" class="sr-only" for="content">Deine Frage</label>
-          <textarea id="content" rows="5" maxlength="16000" placeholder="Was möchtest du wissen?" required disabled></textarea>
+          <textarea id="content" rows="5" maxlength="16000" placeholder="Was möchtest du wissen?" aria-describedby="composer-help" required disabled></textarea>
+          <p id="composer-help" class="sr-only">Enter sendet im aktuellen Modus (bei einer neuen Frage: schnell). Umschalt+Enter fügt einen Zeilenumbruch ein.</p>
         </div>
         <div class="composer-actions">
           <p id="context-info" class="muted" title="Gespräch einschließlich Systemprompt und nächster Nachrichtenrahmen, ohne deine nächste Frage." hidden></p>

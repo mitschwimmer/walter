@@ -360,6 +360,48 @@ try {
   assert.equal(await page.locator('#imprint').isVisible(), false);
   assert.equal(await page.locator('#privacy').isVisible(), false);
   await screenshot('build-only-footer');
+  // Enter shares the button submission path and preserves multiline/IME input.
+  signedIn = true;
+  await page.goto(origin);
+  await state('start');
+  await inputFocused();
+  const beforeKeyboard = submissions.length;
+  await page.locator('#content').press('Enter');
+  assert.equal(await page.locator('#content').inputValue(), '');
+  await page.locator('#content').fill('   ');
+  await page.locator('#content').press('Enter');
+  assert.equal(submissions.length, beforeKeyboard);
+  await page.locator('#content').fill('Erste Zeile');
+  await page.locator('#content').press('Shift+Enter');
+  await page.locator('#content').press('End');
+  await page.keyboard.insertText('Zweite Zeile');
+  assert.equal(await page.locator('#content').inputValue(), 'Erste Zeile\nZweite Zeile');
+  for (const event of [{ isComposing: true }, { keyCode: 229 }, { repeat: true }]) {
+    await page.locator('#content').dispatchEvent('keydown', { key: 'Enter', ...event });
+  }
+  assert.equal(submissions.length, beforeKeyboard);
+  await page.locator('#content').press('Enter');
+  await idle();
+  assert.equal(submissions.length, beforeKeyboard + 1);
+  assert.equal(submissions.at(-1), 'Erste Zeile\nZweite Zeile');
+  assert.equal([...conversations.values()].at(-1).thinking, 'quick');
+  await page.locator('#content').fill('Bitte bedacht antworten');
+  await page.locator('#thoughtful').click();
+  await idle();
+  await page.locator('#content').fill('Weitere Frage per Enter');
+  await page.locator('#content').press('Enter');
+  await idle();
+  assert.equal(submissions.length, beforeKeyboard + 3);
+  assert.equal([...conversations.values()].at(-1).thinking, 'thoughtful');
+  // A full current mode cannot be bypassed using the keyboard.
+  contextThoughtful = 16384;
+  await page.reload();
+  await state('conversation');
+  await idle();
+  await page.locator('#content').fill('Nicht senden');
+  await page.locator('#content').press('Enter');
+  assert.equal(submissions.length, beforeKeyboard + 3);
+  assert.equal(await page.locator('#content').inputValue(), 'Nicht senden');
   assert.deepEqual(errors, []);
   console.log('UI passed: both modes, streaming, follow-up, stop, history, deep links, delete/cancel, retry, session expiry, logout and responsive overflow.');
 } finally {

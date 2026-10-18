@@ -257,6 +257,13 @@ async function reloadReply(id) {
     }
   } finally { recovering = false; busy(false); }
 }
+$('content').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  if (e.repeat || !$('content').value.trim()) return;
+  const submitter = $(current?.thinking || 'quick');
+  if (!submitter.disabled) $('composer').requestSubmit(submitter);
+});
 $('composer').onsubmit = async e => {
   e.preventDefault();
   if (controller || recovering || !authenticated) return;
