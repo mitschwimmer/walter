@@ -283,9 +283,20 @@ try {
   assert.equal(submissions.length, 4);
   assert.equal(await page.locator('#quick').isVisible(), true);
   assert.equal(await page.locator('#thoughtful').isVisible(), true);
-  for (const width of [320, 390, 768]) {
+  for (const width of [320, 390, 480, 768]) {
     await page.setViewportSize({ width, height: 844 });
     await noOverflow();
+    if (width <= 480) {
+      const reading = await page.locator('.assistant .message-content').first().evaluate(el => ({
+        width: el.getBoundingClientRect().width,
+        fontSize: getComputedStyle(el).fontSize,
+      }));
+      assert.ok(reading.width >= width - 60, 'phone replies use the available reading width');
+      assert.equal(reading.fontSize, '15px');
+      assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).fontSize), '16px');
+    } else {
+      assert.equal(await page.locator('.assistant .message-content').first().evaluate(el => getComputedStyle(el).fontSize), '18px');
+    }
     await screenshot(`conversation-${width}`);
   }
   await page.locator('#new').click();
