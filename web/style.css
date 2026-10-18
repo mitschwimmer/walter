@@ -28,7 +28,6 @@
   --table-line: #ddd;
   --hover-bg: #f4f4f4;
   --button-line: #ccc;
-  --placeholder: #8b8b8b;
   font: 18px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -62,9 +61,9 @@
     --table-line: #665c54;
     --hover-bg: #3c3836;
     --button-line: #928374;
-    --placeholder: #a89984;
   }
   .brand img { filter: brightness(0) invert(.9); }
+  :root textarea::placeholder { color: var(--muted); }
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100dvh; display: flex; flex-direction: column; }
@@ -205,7 +204,7 @@ p { margin: 0 0 20px; }
 #conversation-tools button { color: var(--danger); font-size: 14px; }
 #composer { margin: 0; }
 textarea { display: block; resize: vertical; width: 100%; border: 0; border-left: 10px solid var(--line); border-radius: 0; padding: 18px 24px; min-height: 206px; max-height: 65vh; font-size: 19px; line-height: 1.5; }
-textarea::placeholder { color: var(--placeholder); opacity: 1; }
+textarea::placeholder { color: #8b8b8b; opacity: 1; }
 textarea:focus { outline: none; border-left-color: var(--focus); }
 textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; }
 body[data-view="conversation"] textarea { min-height: 130px; }
