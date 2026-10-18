@@ -205,8 +205,9 @@ p { margin: 0 0 20px; }
 #composer { margin: 0; }
 textarea { display: block; resize: vertical; width: 100%; border: 0; border-left: 10px solid var(--line); border-radius: 0; padding: 18px 24px; min-height: 206px; max-height: 65vh; font-size: 19px; line-height: 1.5; }
 textarea::placeholder { color: #8b8b8b; opacity: 1; }
-textarea:focus { outline: none; border-left-color: var(--focus); }
-textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; }
+textarea { background-color: color-mix(in srgb, var(--panel) 94%, black); }
+textarea:focus, textarea:focus-visible { outline: none; background-color: var(--panel); }
+textarea:focus::placeholder { opacity: 0; }
 body[data-view="conversation"] textarea { min-height: 130px; }
 .composer-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 64px; }
 #context-info, #context-full { flex-basis: 100%; margin: 0; text-align: right; }
@@ -297,10 +298,12 @@ dialog::backdrop { background: #0005; }
   .conversation-list .delete-conversation { margin-right: 12px; }
 }
 @media (prefers-reduced-motion: no-preference) { button, a { transition: background-color .15s, opacity .15s; } }
+@media (prefers-reduced-motion: no-preference) { textarea { transition: background-color .18s ease; } }
 
 @media (forced-colors: active) {
   .mode { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
   .mode:hover:not(:disabled) { filter: none; }
   :focus-visible, textarea:focus-visible { outline-color: Highlight; }
+  textarea:focus-visible { outline: 2px solid Highlight; outline-offset: 5px; }
   textarea:focus { border-left-color: Highlight; }
 }
