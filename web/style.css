@@ -240,6 +240,22 @@ dialog::backdrop { background: #0005; }
   .conversation-list a { padding: 18px; }
   .conversation-list .delete-conversation { margin-right: 18px; }
 }
+@media (max-width: 480px) {
+  :root { font-size: 15px; }
+  .site-header, main, .site-footer { width: calc(100% - 24px); }
+  main { padding-top: 44px; padding-bottom: 36px; }
+  .headline { margin-bottom: 32px; }
+  .message { padding: 14px 12px; margin-bottom: 16px; }
+  .message.user, textarea, .conversation-list li, .panel { border-left-width: 4px; }
+  .message.assistant { border-right-width: 4px; padding: 16px 12px 20px; }
+  /* Keep inputs at 16px to avoid focus zoom in mobile Safari. */
+  textarea { padding: 14px 12px; font-size: 16px; }
+  .panel { padding: 18px 14px; }
+  .message-content pre { padding: 12px; }
+  .message-content :is(th,td) { padding: 6px 10px; }
+  .conversation-list a { padding: 16px 12px; }
+  .conversation-list .delete-conversation { margin-right: 12px; }
+}
 @media (prefers-reduced-motion: no-preference) { button, a { transition: background-color .15s, opacity .15s; } }
 
 @media (forced-colors: active) {
