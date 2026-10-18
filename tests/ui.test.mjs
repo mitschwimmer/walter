@@ -124,6 +124,25 @@ try {
   await page.locator('#content').fill('Was ist Marmelade?');
   assert.equal(await page.locator('#context-info').isVisible(), false);
   await screenshot('start-desktop');
+  // Input focus uses brightness; other keyboard controls retain their outline.
+  await page.locator('#content').fill('');
+  await page.locator('#quick').focus();
+  await page.waitForTimeout(220);
+  const idleBackground = await page.locator('#content').evaluate(el => getComputedStyle(el).backgroundColor);
+  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el, '::placeholder').opacity), '1');
+  await page.locator('#content').focus();
+  await page.waitForTimeout(220);
+  const focusBackground = await page.locator('#content').evaluate(el => getComputedStyle(el).backgroundColor);
+  assert.notEqual(focusBackground, idleBackground);
+  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'none');
+  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el, '::placeholder').opacity), '0');
+  assert.equal(await page.locator('#content').getAttribute('placeholder'), 'Was möchtest du wissen?');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).transitionDuration), '0s');
+  await page.emulateMedia({ forcedColors: 'active' });
+  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
+  await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
+  await page.locator('#content').fill('Was ist Marmelade?');
   releaseAnswer = null;
   await page.locator('#thoughtful').click();
   await state('conversation');
