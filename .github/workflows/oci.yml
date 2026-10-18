@@ -18,6 +18,9 @@ jobs:
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    strategy:
+      matrix:
+        color-scheme: [light, dark]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,12 +33,13 @@ jobs:
         env:
           WALTER_PLAYWRIGHT_MODULE: ${{ runner.temp }}/walter-ui-tools/node_modules/playwright
           WALTER_SCREENSHOT_DIR: ${{ runner.temp }}/walter-screenshots
+          WALTER_COLOR_SCHEME: ${{ matrix.color-scheme }}
         run: node tests/ui.test.mjs
       - name: Save desktop and mobile screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: walter-ui-screenshots
+          name: walter-ui-screenshots-${{ matrix.color-scheme }}
           path: ${{ runner.temp }}/walter-screenshots
           if-no-files-found: ignore
           retention-days: 7

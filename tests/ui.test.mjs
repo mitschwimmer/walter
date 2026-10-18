@@ -91,7 +91,8 @@ await once(server, 'listening');
 const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true, ...(process.env.WALTER_BROWSER_EXECUTABLE ? { executablePath: process.env.WALTER_BROWSER_EXECUTABLE } : {}), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 const errors = [];
-const page = await browser.newPage({ viewport: { width: 1071, height: 1579 } });
+const colorScheme = process.env.WALTER_COLOR_SCHEME || 'light';
+const page = await browser.newPage({ viewport: { width: 1071, height: 1579 }, colorScheme });
 page.on('pageerror', e => errors.push(e.message));
 const state = name => page.waitForFunction(name => document.body.dataset.view === name, name);
 const idle = () => page.waitForFunction(() => document.querySelector('#composer').getAttribute('aria-busy') === 'false' && !document.querySelector('#content').disabled);
@@ -191,6 +192,37 @@ try {
   assert.equal(await page.locator('.message').count(), 2);
   await noOverflow();
   await screenshot('conversation-desktop');
+  // Browser preference changes apply immediately, including Markdown surfaces.
+  for (const scheme of ['dark', 'light']) {
+    await page.emulateMedia({ colorScheme: scheme });
+    const colors = await page.evaluate(() => {
+      const style = selector => getComputedStyle(document.querySelector(selector));
+      return {
+        scheme: style(':root').colorScheme,
+        background: style(':root').backgroundColor,
+        foreground: style('.assistant').color,
+        panel: style('.assistant').backgroundColor,
+        code: style('.assistant pre').backgroundColor,
+        dialog: style('dialog').backgroundColor,
+        error: style('.error').backgroundColor,
+      };
+    });
+    assert.equal(colors.scheme, scheme);
+    if (scheme === 'dark') {
+      assert.equal(colors.background, 'rgb(29, 32, 33)');
+      assert.equal(colors.foreground, 'rgb(235, 219, 178)');
+      assert.equal(colors.panel, 'rgb(40, 40, 40)');
+      assert.equal(colors.code, colors.background);
+    } else {
+      assert.equal(colors.background, 'rgb(250, 250, 250)');
+      assert.equal(colors.foreground, 'rgb(55, 55, 55)');
+      assert.equal(colors.panel, 'rgb(255, 255, 255)');
+    }
+    assert.equal(colors.dialog, colors.panel);
+    assert.equal(colors.error, colors.panel);
+    await screenshot(`conversation-${scheme}`);
+  }
+  await page.emulateMedia({ colorScheme });
   const conversationURL = page.url();
   await page.locator('#content').fill('<img src=x onerror=alert(1)>');
   await page.locator('#quick').click();
