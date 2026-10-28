@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -125,15 +126,7 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 		problem(w, 403, "Kein Zugriff.")
 		return
 	}
-	allowed := false
-	for _, g := range claims.Groups {
-		for _, want := range a.cfg.Groups {
-			if g == want {
-				allowed = true
-			}
-		}
-	}
-	if !allowed {
+	if !a.allowedGroup(claims.Groups) {
 		problem(w, 403, "Kein Zugriff.")
 		return
 	}
@@ -187,4 +180,13 @@ func (a *Auth) logout(w http.ResponseWriter, r *http.Request) {
 	a.mu.Unlock()
 	cookie(w, "__Host-walter-session", "", -1)
 	w.WriteHeader(204)
+}
+
+func (a *Auth) allowedGroup(groups []string) bool {
+	for _, group := range groups {
+		if slices.Contains(a.cfg.Groups, group) {
+			return true
+		}
+	}
+	return false
 }

@@ -189,24 +189,31 @@ func (s *Store) Recover() error {
 			return err
 		}
 		for _, v := range cs {
-			c, err := s.load(u.Name(), v.ID)
-			if err != nil {
+			if err := s.recoverConversation(u.Name(), v.ID); err != nil {
 				return err
-			}
-			changed := false
-			for i := range c.Messages {
-				if c.Messages[i].Status == "pending" {
-					c.Messages[i].Status = "failed"
-					changed = true
-				}
-			}
-			if changed {
-				c.Updated = time.Now().UTC()
-				if err := s.save(u.Name(), c); err != nil {
-					return err
-				}
 			}
 		}
 	}
 	return nil
+}
+
+// Caller holds s.mu throughout startup recovery.
+func (s *Store) recoverConversation(user, id string) error {
+	c, err := s.load(user, id)
+	if err != nil {
+		return err
+	}
+	changed := false
+	for i := range c.Messages {
+		if c.Messages[i].Status != "pending" {
+			continue
+		}
+		c.Messages[i].Status = "failed"
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	c.Updated = time.Now().UTC()
+	return s.save(user, c)
 }

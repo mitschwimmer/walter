@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -59,5 +58,5 @@ func logFailure(ctx context.Context, operation string, err error) {
 		cause = errors.Unwrap(cause)
 	}
 	attrs = append(attrs, "cause_type", fmt.Sprintf("%T", cause))
-	slog.ErrorContext(ctx, "operation failed", attrs...)
+	requestLogger(ctx).ErrorContext(ctx, "operation failed", attrs...)
 }

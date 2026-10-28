@@ -28,10 +28,13 @@ func event(w http.ResponseWriter, name string, v any) error {
 }
 
 // SSE data can span lines and transport chunks. Never equate reads with events.
+const maxSSEEventBytes = 1 << 20
+
 func consumeSSE(r io.Reader, consume func(string) error) error {
 	scan := bufio.NewScanner(r)
-	scan.Buffer(make([]byte, 4096), 1<<20)
+	scan.Buffer(make([]byte, 4096), maxSSEEventBytes)
 	var lines []string
+	size := 0
 	for scan.Scan() {
 		line := strings.TrimSuffix(scan.Text(), "\r")
 		if line == "" {
@@ -40,11 +43,17 @@ func consumeSSE(r io.Reader, consume func(string) error) error {
 					return err
 				}
 				lines = nil
+				size = 0
 			}
 			continue
 		}
 		if strings.HasPrefix(line, "data:") {
-			lines = append(lines, strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
+			data := strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " ")
+			size += len(data) + 1 // Include separators, even for empty data lines.
+			if size > maxSSEEventBytes {
+				return errors.New("SSE event too large")
+			}
+			lines = append(lines, data)
 		}
 	}
 	if err := scan.Err(); err != nil {
@@ -110,6 +119,7 @@ func (a *App) authorizeInference(req *http.Request) {
 }
 
 func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) error, progress func(inferenceProgress) error) error {
+	requestLogger(ctx).DebugContext(ctx, "inference started")
 	payload := a.inferencePayload(c, conversationMessages(c), c.Thinking)
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -218,6 +228,7 @@ func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) err
 		return nil
 	})
 	if errors.Is(err, errDone) {
+		requestLogger(ctx).DebugContext(ctx, "inference completed")
 		return nil
 	}
 	if err != nil {
@@ -313,11 +324,12 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 		return
 	}
 	if err != nil {
-		if r.Context().Err() == nil {
-			logFailure(r.Context(), "generate_reply", err)
-		}
+		logFailure(r.Context(), "generate_reply", err)
 		_ = event(w, "error", map[string]string{"error": "Antwort unterbrochen. Bitte erneut versuchen.", "status": reply.Status})
 		return
 	}
-	_ = event(w, "done", map[string]string{"message_id": reply.ID})
+	requestLogger(r.Context()).DebugContext(r.Context(), "reply persisted")
+	if err := event(w, "done", map[string]string{"message_id": reply.ID}); err != nil {
+		logFailure(r.Context(), "complete_response", err)
+	}
 }

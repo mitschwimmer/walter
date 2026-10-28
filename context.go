@@ -108,7 +108,15 @@ func (a *App) contextCapacity(ctx context.Context, model string) int {
 			Capacity int `json:"n_ctx"`
 		} `json:"default_generation_settings"`
 	}
-	if a.contextJSON(ctx, "props", model, nil, &props) != nil || props.Settings.Capacity <= 0 {
+	if a.cfg.Backend == "openai" {
+		return 0
+	}
+	if err := a.contextJSON(ctx, "props", model, nil, &props); err != nil {
+		logFailure(ctx, "context_capacity", err)
+		return 0
+	}
+	if props.Settings.Capacity <= 0 {
+		logFailure(ctx, "context_capacity", errors.New("invalid capacity"))
 		return 0
 	}
 	return props.Settings.Capacity
@@ -118,7 +126,12 @@ func (a *App) countInput(ctx context.Context, c *Conversation, messages []map[st
 	var count struct {
 		Tokens *int `json:"input_tokens"`
 	}
-	if a.contextJSON(ctx, "input_tokens", c.Model, a.inferencePayload(c, messages, mode), &count) != nil || count.Tokens == nil || *count.Tokens <= 0 {
+	if err := a.contextJSON(ctx, "input_tokens", c.Model, a.inferencePayload(c, messages, mode), &count); err != nil {
+		logFailure(ctx, "count_input", err)
+		return nil
+	}
+	if count.Tokens == nil || *count.Tokens <= 0 {
+		logFailure(ctx, "count_input", errors.New("invalid token count"))
 		return nil
 	}
 	return count.Tokens
