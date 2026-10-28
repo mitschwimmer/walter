@@ -12,10 +12,14 @@ import (
 
 func TestCompletedConversationContext(t *testing.T) {
 	a := testApp(t)
+	a.cfg.APIKey = "metadata-key"
 	a.cfg.Quick = map[string]any{"chat_template_kwargs": map[string]any{"enable_thinking": false}}
 	a.cfg.Thoughtful = map[string]any{"chat_template_kwargs": map[string]any{"enable_thinking": true}}
 	var countCalls int
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer metadata-key" {
+			t.Error("missing metadata authentication")
+		}
 		if r.URL.Query().Get("model") != "test" {
 			t.Error("missing model routing", r.URL)
 		}

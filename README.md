@@ -1,6 +1,7 @@
 # Walter
 
-Walter is a small German web UI for private conversations with llama.cpp. One Go process,
+Walter is a small German web UI for private conversations with llama.cpp or an
+OpenAI Chat Completions backend such as Strata. One Go process,
 embedded HTML/CSS/ES modules, per-conversation JSON, native Kanidm OIDC, no
 frontend build step. Inference is accessible only through the backend.
 
@@ -96,7 +97,11 @@ before the HTTP server finishes shutdown.
 | `WALTER_MODEL` | Required model alias verified in the inference catalog |
 | `WALTER_QUICK_JSON` | Optional replacement profile for **schnell**; defaults below |
 | `WALTER_THOUGHTFUL_JSON` | Optional replacement profile for **bedacht**; defaults below |
-| `WALTER_LLAMA_ENDPOINT` | Required full private chat completions URL |
+| `WALTER_INFERENCE_BACKEND` | `llamacpp` (default) or `openai` (Chat Completions) |
+| `WALTER_INFERENCE_ENDPOINT` | Full private chat completions URL, including `/v1/chat/completions`; required for `openai` |
+| `WALTER_LLAMA_ENDPOINT` | Legacy endpoint setting for `llamacpp`; use this or `WALTER_INFERENCE_ENDPOINT`, never both |
+| `WALTER_INFERENCE_API_KEY` | Optional bearer credential; use this or the file setting, never both |
+| `WALTER_INFERENCE_API_KEY_FILE` | Path to a mounted bearer credential file; preferred for OCI |
 | `WALTER_LISTEN` | `127.0.0.1:8080`; select a private interface for a separate Caddy guest |
 | `WALTER_DATA_DIR` | `data`; use an absolute persistent volume path in production |
 | `WALTER_GENERATION_TIMEOUT` | `2h`, includes cold model loading and streaming |
@@ -104,7 +109,7 @@ before the HTTP server finishes shutdown.
 | `WALTER_MAX_HISTORY_BYTES` | `48000`, rejects additional messages rather than silently truncating |
 | `WALTER_MAX_OUTPUT_TOKENS` | `4096`; fallback when a profile omits `max_tokens` |
 
-Model settings allow `reasoning_effort`, `chat_template_kwargs`, `temperature`,
+For `llamacpp`, model settings allow `reasoning_effort`, `chat_template_kwargs`, `temperature`,
 `top_p`, `top_k`, `min_p`, `presence_penalty`, `repeat_penalty`, and `max_tokens`
 (a positive integer). A profile's `max_tokens` takes precedence over
 `WALTER_MAX_OUTPUT_TOKENS`. The adapter always requests streaming and
@@ -122,7 +127,7 @@ Servers that omit these extensions keep the neutral waiting label until text
 arrives; Walter never invents a percentage or infers thinking from the mode.
 Progress disappears with the first answer snapshot and is not persisted.
 
-The default profiles target `qwen38-chat`. Set `WALTER_MODEL=qwen38-chat` and
+The default llama.cpp profiles target `qwen38-chat`. Set `WALTER_MODEL=qwen38-chat` and
 leave the profile variables unset to use these defaults. Existing nonempty
 profile variables replace the whole corresponding profile; remove them or
 update them to the values below to adopt the new settings.
@@ -141,6 +146,50 @@ A byte budget is not a tokenizer/context guarantee: keep history and
 output limits comfortably below the model's configured context. The backend
 retains the conversation's original model alias and refuses generation if that
 alias no longer matches configuration.
+
+### OpenAI Chat Completions / Strata
+
+Use the `openai` backend for the streaming Chat Completions API. It shares
+Walter's cancellation, persistence and SSE handling, but sends no llama.cpp
+extensions (`reasoning_format`, progress/timing requests or template flags).
+Profiles accept `temperature`, `top_p`, `presence_penalty`, `max_tokens` and
+an explicitly configured `reasoning_effort` when the provider supports it.
+llama.cpp-only profile settings fail startup rather than being silently ignored.
+Remove existing llama.cpp profile overrides when switching backends.
+
+The portable defaults are `{"max_tokens":2048}` for **schnell** and
+`{"max_tokens":4096}` for **bedacht**. These differ only in output budget;
+they do not switch model thinking on/off. Actual reasoning controls and model
+limits must be verified for the selected provider. Separated `reasoning_content`
+is discarded; the provider must keep reasoning out of answer `content`.
+Walter does not send a developer-role message or request tools.
+
+The Digital Garden pi sandbox uses this Strata model and endpoint:
+
+```text
+WALTER_INFERENCE_BACKEND=openai
+WALTER_INFERENCE_ENDPOINT=http://strata.internal:8080/v1/chat/completions
+WALTER_MODEL=qwen3.8-flash-next-iq3_s
+WALTER_INFERENCE_API_KEY_FILE=/run/secrets/walter-strata
+```
+
+Leave `WALTER_LLAMA_ENDPOINT`, `WALTER_QUICK_JSON` and
+`WALTER_THOUGHTFUL_JSON` unset to use these defaults. Strata's pi configuration
+declares no `reasoning_effort` support, so do not add that setting for this model.
+Its declared output limit is 4096 tokens and context window is 32768; these are
+configuration metadata, not live measurements.
+
+Provide Walter with its own runtime credential and network access. Pi's
+`__strata_api_key__` is a placeholder replaced by its Agent Vault proxy and is
+not an API key for a direct Walter connection. The `strata.internal` hostname is
+mapped by that vault; Walter's runtime needs equivalent name resolution or a
+reachable endpoint. HTTP carries credentials and prompts over the trusted LAN;
+use HTTPS when the deployment provides it.
+
+Credentials are read at startup, sent only by the backend, and never exposed
+through Walter's API. Restart after rotating a mounted key. Inference and context
+requests reject redirects to keep prompts and credentials on the configured
+endpoint. No OpenAI Responses or Anthropic Messages adapter is included.
 
 ## Behavior and interruption policy
 
@@ -186,7 +235,7 @@ alias no longer matches configuration.
 
 ## Conversation context indicator
 
-After a complete answer, the follow-up controls show the retained conversation's
+For the `llamacpp` backend, after a complete answer the follow-up controls show the retained conversation's
 context usage. The backend fetches the selected model's effective per-slot
 capacity from `/props?model=...` and counts tokens using
 `POST /v1/chat/completions/input_tokens` (or the equivalent unversioned path).
@@ -216,6 +265,10 @@ unsupported, the UI shows `Kontext: unbekannt` and the usual generation path
 remains available. The inference server still enforces its own limits. Auxiliary
 URLs preserve a configured reverse-proxy base path; expose `/props` and the
 input-token endpoint privately alongside chat completions for this feature.
+
+With `openai`, Walter skips these llama.cpp-specific auxiliary calls and shows
+`Kontext: unbekannt`. Generation remains available; the provider enforces its
+context limit. Walter's byte-based history limit still applies.
 
 ## Authentication and trust
 

@@ -96,6 +96,19 @@ type inferenceProgress struct {
 	Tokens  int    `json:"tokens,omitempty"`
 }
 
+// Keep credentials and prompts on the configured endpoint, including on 307/308.
+func inferenceClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+}
+
+func (a *App) authorizeInference(req *http.Request) {
+	if a.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+a.cfg.APIKey)
+	}
+}
+
 func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) error, progress func(inferenceProgress) error) error {
 	payload := a.inferencePayload(c, conversationMessages(c), c.Thinking)
 	b, err := json.Marshal(payload)
@@ -108,6 +121,7 @@ func (a *App) infer(ctx context.Context, c *Conversation, delta func(string) err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
+	a.authorizeInference(req)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return err
