@@ -32,7 +32,12 @@ func conversationMessages(c *Conversation) []map[string]string {
 }
 
 func (a *App) inferencePayload(c *Conversation, messages []map[string]string, mode string) map[string]any {
-	payload := map[string]any{"model": c.Model, "messages": messages, "stream": true, "reasoning_format": "deepseek", "max_tokens": a.cfg.MaxOutput, "return_progress": true, "timings_per_token": true}
+	payload := map[string]any{"model": c.Model, "messages": messages, "stream": true, "max_tokens": a.cfg.MaxOutput}
+	if a.cfg.Backend != "openai" {
+		payload["reasoning_format"] = "deepseek"
+		payload["return_progress"] = true
+		payload["timings_per_token"] = true
+	}
 	settings := a.cfg.Quick
 	if mode == "thoughtful" {
 		settings = a.cfg.Thoughtful
@@ -47,6 +52,9 @@ func (a *App) inferencePayload(c *Conversation, messages []map[string]string, mo
 // proxy's base path. Do not assume an arbitrary OpenAI-compatible endpoint also
 // exposes llama.cpp metadata.
 func (a *App) contextURL(resource, model string) (string, error) {
+	if a.cfg.Backend == "openai" {
+		return "", errors.New("context metadata endpoint unavailable")
+	}
 	u, err := url.Parse(a.cfg.Endpoint)
 	if err != nil || u.Host == "" || !strings.HasSuffix(u.Path, "/chat/completions") {
 		return "", errors.New("context metadata endpoint unavailable")
@@ -82,6 +90,7 @@ func (a *App) contextJSON(ctx context.Context, resource, model string, body any,
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	a.authorizeInference(req)
 	response, err := a.client.Do(req)
 	if err != nil {
 		return err

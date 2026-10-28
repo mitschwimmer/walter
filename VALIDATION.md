@@ -1,5 +1,21 @@
 # Validation
 
+## OpenAI Chat Completions backend (2026-10-26)
+
+Validated with Go 1.25.3 on linux/amd64:
+
+- Go tests, vet, race detector, CGo-free release build and Node SSE parser tests passed.
+- HTTP fixtures cover both portable profiles, bearer authentication and optional
+  credentials, mounted key files, legacy llama.cpp configuration, hidden
+  reasoning, role-only/usage stream chunks, unsupported metadata and redirect
+  rejection. llama.cpp context requests also verify bearer authentication.
+- No dependencies or frontend code changed.
+
+Not run: Nix packaging (Nix unavailable), live Strata streaming/thinking behavior,
+or deployment. The Strata example follows Digital Garden's pi model definition;
+it still needs a dedicated runtime credential and reachable endpoint in Walter's
+deployment.
+
 Validated in the implementation workspace with Go 1.25.3, linux/amd64:
 
 - `CGO_ENABLED=0 go test -count=1 -v ./...` — passed all test groups.

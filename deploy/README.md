@@ -48,12 +48,24 @@ Use client_secret_basic, S256 PKCE, openid/profile/groups scopes, and an ID-toke
 groups array containing the groups explicitly authorized for Walter. Set
 `WALTER_ALLOWED_GROUPS` to those exact values. Use discovery's exact issuer URL.
 
-`WALTER_LLAMA_ENDPOINT` is required: supply the full private chat completions URL.
+For the default `llamacpp` backend, supply the full private chat completions URL
+with `WALTER_INFERENCE_ENDPOINT` (or legacy `WALTER_LLAMA_ENDPOINT`).
 Verify the model alias, context size and thinking flags against the installed
 GGUF/template. The default profiles target `qwen38-chat`; set `WALTER_MODEL`
 to that alias and remove old `WALTER_QUICK_JSON` / `WALTER_THOUGHTFUL_JSON`
 overrides, or update them to the profiles in the root README. Test German
 answer text and separated reasoning for both thinking modes.
+
+For Strata or another OpenAI Chat Completions server, set
+`WALTER_INFERENCE_BACKEND=openai`, `WALTER_INFERENCE_ENDPOINT` to the full chat
+completions URL, and the provider's model ID. Remove llama.cpp profile overrides;
+see the root README for the portable defaults and Strata example. Mount a
+dedicated bearer key as a read-only file readable by UID 65532 and set
+`WALTER_INFERENCE_API_KEY_FILE`. Its environment-value alternative is
+`WALTER_INFERENCE_API_KEY`; never configure both. Key delivery and rotation
+follow the OIDC runtime-secret procedure above. Confirm name resolution and
+network access from Walter's container; Pi's vault setup does not supply them
+to Walter. Context usage is unknown for this backend.
 
 ## HTTPS proxy
 

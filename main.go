@@ -29,6 +29,7 @@ const thoughtfulSettings = `{"chat_template_kwargs":{"enable_thinking":true,"pre
 type Config struct {
 	Listen, PublicURL, Issuer, ClientID, ClientSecret, DataDir, Endpoint, Model string
 	ImprintURL, PrivacyURL                                                      string
+	Backend, APIKey                                                             string
 	Groups                                                                      []string
 	Quick, Thoughtful                                                           map[string]any
 	GenerationTimeout, SessionTTL                                               time.Duration
@@ -42,22 +43,45 @@ func env(k, fallback string) string {
 	return fallback
 }
 func clientSecret() (string, error) {
-	value, path := os.Getenv("WALTER_OIDC_CLIENT_SECRET"), os.Getenv("WALTER_OIDC_CLIENT_SECRET_FILE")
+	return secret("WALTER_OIDC_CLIENT_SECRET")
+}
+
+func secret(key string) (string, error) {
+	value, path := os.Getenv(key), os.Getenv(key+"_FILE")
 	if path == "" {
 		return value, nil
 	}
 	if value != "" {
-		return "", errors.New("configure only one OIDC client secret source")
+		return "", fmt.Errorf("configure only one %s source", key)
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("read OIDC client secret file: %w", err)
+		return "", fmt.Errorf("read %s file: %w", key, err)
 	}
 	return strings.TrimRight(string(b), "\r\n"), nil
 }
 func config() (Config, error) {
 	c := Config{Listen: env("WALTER_LISTEN", "127.0.0.1:8080"), PublicURL: os.Getenv("WALTER_PUBLIC_URL"), Issuer: os.Getenv("WALTER_OIDC_ISSUER"), ClientID: os.Getenv("WALTER_OIDC_CLIENT_ID"), ClientSecret: "", DataDir: env("WALTER_DATA_DIR", "data"), Endpoint: os.Getenv("WALTER_LLAMA_ENDPOINT"), Model: os.Getenv("WALTER_MODEL"), Groups: strings.Split(env("WALTER_ALLOWED_GROUPS", "walter-users"), ","), GenerationTimeout: 2 * time.Hour, SessionTTL: 12 * time.Hour, MaxHistory: 48000, MaxOutput: 4096}
 	var err error
+	c.Backend = env("WALTER_INFERENCE_BACKEND", "llamacpp")
+	if c.Backend != "llamacpp" && c.Backend != "openai" {
+		return c, errors.New("inference backend must be llamacpp or openai")
+	}
+	if endpoint := os.Getenv("WALTER_INFERENCE_ENDPOINT"); endpoint != "" {
+		if c.Endpoint != "" {
+			return c, errors.New("configure only one inference endpoint")
+		}
+		c.Endpoint = endpoint
+	} else if c.Backend == "openai" {
+		return c, errors.New("OpenAI backend requires WALTER_INFERENCE_ENDPOINT")
+	}
+	c.APIKey, err = secret("WALTER_INFERENCE_API_KEY")
+	if err != nil {
+		return c, err
+	}
+	if strings.ContainsAny(c.APIKey, "\r\n") {
+		return c, errors.New("invalid inference API key")
+	}
 	c.ImprintURL, c.PrivacyURL = os.Getenv("WALTER_IMPRINT_URL"), os.Getenv("WALTER_PRIVACY_URL")
 	for _, value := range []struct{ key, url string }{{"WALTER_IMPRINT_URL", c.ImprintURL}, {"WALTER_PRIVACY_URL", c.PrivacyURL}} {
 		if value.url == "" {
@@ -96,14 +120,25 @@ func config() (Config, error) {
 			*v.dst = n
 		}
 	}
+	quick, thoughtful := quickSettings, thoughtfulSettings
+	if c.Backend == "openai" {
+		// Portable budgets only: reasoning controls depend on the provider/model.
+		quick, thoughtful = `{"max_tokens":2048}`, `{"max_tokens":4096}`
+	}
 	for _, v := range []struct {
 		key, fallback string
 		dst           *map[string]any
-	}{{"WALTER_QUICK_JSON", quickSettings, &c.Quick}, {"WALTER_THOUGHTFUL_JSON", thoughtfulSettings, &c.Thoughtful}} {
+	}{{"WALTER_QUICK_JSON", quick, &c.Quick}, {"WALTER_THOUGHTFUL_JSON", thoughtful, &c.Thoughtful}} {
 		if err := json.Unmarshal([]byte(env(v.key, v.fallback)), v.dst); err != nil || len(*v.dst) == 0 {
 			return c, fmt.Errorf("%s must be a nonempty JSON object of verified model settings", v.key)
 		}
 		for k := range *v.dst {
+			if c.Backend == "openai" {
+				switch k {
+				case "chat_template_kwargs", "top_k", "min_p", "repeat_penalty":
+					return c, fmt.Errorf("%s setting %q requires the llamacpp backend", v.key, k)
+				}
+			}
 			switch k {
 			case "reasoning_effort", "chat_template_kwargs", "temperature", "top_p", "top_k", "min_p", "presence_penalty", "repeat_penalty":
 			case "max_tokens":
@@ -129,7 +164,7 @@ func config() (Config, error) {
 	c.PublicURL = strings.TrimSuffix(c.PublicURL, "/")
 	endpoint, err := url.Parse(c.Endpoint)
 	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil {
-		return c, errors.New("invalid llama endpoint")
+		return c, errors.New("invalid inference endpoint")
 	}
 	if c.ClientID == "" || c.ClientSecret == "" || c.Model == "" {
 		return c, errors.New("OIDC client credentials and model required")
@@ -319,7 +354,7 @@ func run() error {
 		logFailure(ctx, "recover_conversations", err)
 		return err
 	}
-	a := &App{cfg: cfg, store: store, auth: auth, client: &http.Client{Timeout: cfg.GenerationTimeout}, active: map[string]bool{}}
+	a := &App{cfg: cfg, store: store, auth: auth, client: inferenceClient(cfg.GenerationTimeout), active: map[string]bool{}}
 	srv := &http.Server{Addr: cfg.Listen, Handler: a.routes(), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384, BaseContext: func(_ net.Listener) context.Context { return ctx }}
 	done := make(chan error, 1)
 	go func() { done <- srv.ListenAndServe() }()
