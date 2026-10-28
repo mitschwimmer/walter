@@ -5,16 +5,13 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -22,161 +19,6 @@ import (
 
 //go:embed web/*
 var assets embed.FS
-
-const quickSettings = `{"chat_template_kwargs":{"enable_thinking":false,"preserve_thinking":false},"temperature":0.7,"top_p":0.8,"top_k":20,"min_p":0.0,"presence_penalty":1.5,"repeat_penalty":1.0,"max_tokens":2048}`
-const thoughtfulSettings = `{"chat_template_kwargs":{"enable_thinking":true,"preserve_thinking":false,"reasoning_effort":"medium"},"temperature":1.0,"top_p":0.95,"top_k":20,"min_p":0.0,"presence_penalty":0.0,"repeat_penalty":1.0,"max_tokens":8192}`
-
-type Config struct {
-	Listen, PublicURL, Issuer, ClientID, ClientSecret, DataDir, Endpoint, Model string
-	ImprintURL, PrivacyURL                                                      string
-	Backend, APIKey                                                             string
-	Groups                                                                      []string
-	Quick, Thoughtful                                                           map[string]any
-	GenerationTimeout, SessionTTL                                               time.Duration
-	MaxHistory, MaxOutput                                                       int
-}
-
-func env(k, fallback string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return fallback
-}
-func clientSecret() (string, error) {
-	return secret("WALTER_OIDC_CLIENT_SECRET")
-}
-
-func secret(key string) (string, error) {
-	value, path := os.Getenv(key), os.Getenv(key+"_FILE")
-	if path == "" {
-		return value, nil
-	}
-	if value != "" {
-		return "", fmt.Errorf("configure only one %s source", key)
-	}
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("read %s file: %w", key, err)
-	}
-	return strings.TrimRight(string(b), "\r\n"), nil
-}
-func config() (Config, error) {
-	c := Config{Listen: env("WALTER_LISTEN", "127.0.0.1:8080"), PublicURL: os.Getenv("WALTER_PUBLIC_URL"), Issuer: os.Getenv("WALTER_OIDC_ISSUER"), ClientID: os.Getenv("WALTER_OIDC_CLIENT_ID"), ClientSecret: "", DataDir: env("WALTER_DATA_DIR", "data"), Endpoint: os.Getenv("WALTER_LLAMA_ENDPOINT"), Model: os.Getenv("WALTER_MODEL"), Groups: strings.Split(env("WALTER_ALLOWED_GROUPS", "walter-users"), ","), GenerationTimeout: 2 * time.Hour, SessionTTL: 12 * time.Hour, MaxHistory: 48000, MaxOutput: 4096}
-	var err error
-	c.Backend = env("WALTER_INFERENCE_BACKEND", "llamacpp")
-	if c.Backend != "llamacpp" && c.Backend != "openai" {
-		return c, errors.New("inference backend must be llamacpp or openai")
-	}
-	if endpoint := os.Getenv("WALTER_INFERENCE_ENDPOINT"); endpoint != "" {
-		if c.Endpoint != "" {
-			return c, errors.New("configure only one inference endpoint")
-		}
-		c.Endpoint = endpoint
-	} else if c.Backend == "openai" {
-		return c, errors.New("OpenAI backend requires WALTER_INFERENCE_ENDPOINT")
-	}
-	c.APIKey, err = secret("WALTER_INFERENCE_API_KEY")
-	if err != nil {
-		return c, err
-	}
-	if strings.ContainsAny(c.APIKey, "\r\n") {
-		return c, errors.New("invalid inference API key")
-	}
-	c.ImprintURL, c.PrivacyURL = os.Getenv("WALTER_IMPRINT_URL"), os.Getenv("WALTER_PRIVACY_URL")
-	for _, value := range []struct{ key, url string }{{"WALTER_IMPRINT_URL", c.ImprintURL}, {"WALTER_PRIVACY_URL", c.PrivacyURL}} {
-		if value.url == "" {
-			continue
-		}
-		u, err := url.Parse(value.url)
-		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
-			return c, fmt.Errorf("%s must be an HTTPS URL", value.key)
-		}
-	}
-	c.ClientSecret, err = clientSecret()
-	if err != nil {
-		return c, err
-	}
-	for _, v := range []struct {
-		key string
-		dst *time.Duration
-	}{{"WALTER_GENERATION_TIMEOUT", &c.GenerationTimeout}, {"WALTER_SESSION_TTL", &c.SessionTTL}} {
-		if raw := os.Getenv(v.key); raw != "" {
-			d, err := time.ParseDuration(raw)
-			if err != nil || d <= 0 {
-				return c, fmt.Errorf("invalid %s", v.key)
-			}
-			*v.dst = d
-		}
-	}
-	for _, v := range []struct {
-		key string
-		dst *int
-	}{{"WALTER_MAX_HISTORY_BYTES", &c.MaxHistory}, {"WALTER_MAX_OUTPUT_TOKENS", &c.MaxOutput}} {
-		if raw := os.Getenv(v.key); raw != "" {
-			n, err := strconv.Atoi(raw)
-			if err != nil || n <= 0 {
-				return c, fmt.Errorf("invalid %s", v.key)
-			}
-			*v.dst = n
-		}
-	}
-	quick, thoughtful := quickSettings, thoughtfulSettings
-	if c.Backend == "openai" {
-		// Portable budgets only: reasoning controls depend on the provider/model.
-		quick, thoughtful = `{"max_tokens":2048}`, `{"max_tokens":4096}`
-	}
-	for _, v := range []struct {
-		key, fallback string
-		dst           *map[string]any
-	}{{"WALTER_QUICK_JSON", quick, &c.Quick}, {"WALTER_THOUGHTFUL_JSON", thoughtful, &c.Thoughtful}} {
-		if err := json.Unmarshal([]byte(env(v.key, v.fallback)), v.dst); err != nil || len(*v.dst) == 0 {
-			return c, fmt.Errorf("%s must be a nonempty JSON object of verified model settings", v.key)
-		}
-		for k := range *v.dst {
-			if c.Backend == "openai" {
-				switch k {
-				case "chat_template_kwargs", "top_k", "min_p", "repeat_penalty":
-					return c, fmt.Errorf("%s setting %q requires the llamacpp backend", v.key, k)
-				}
-			}
-			switch k {
-			case "reasoning_effort", "chat_template_kwargs", "temperature", "top_p", "top_k", "min_p", "presence_penalty", "repeat_penalty":
-			case "max_tokens":
-				n, ok := (*v.dst)[k].(float64)
-				if !ok || n <= 0 || n != float64(int(n)) {
-					return c, fmt.Errorf("%s max_tokens must be a positive integer", v.key)
-				}
-			default:
-				return c, fmt.Errorf("unsupported model setting %q", k)
-			}
-		}
-	}
-	for _, raw := range []string{c.PublicURL, c.Issuer} {
-		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-			return c, errors.New("public URL and issuer must be HTTPS URLs")
-		}
-	}
-	u, _ := url.Parse(c.PublicURL)
-	if u.Path != "" && u.Path != "/" {
-		return c, errors.New("public URL must be an origin")
-	}
-	c.PublicURL = strings.TrimSuffix(c.PublicURL, "/")
-	endpoint, err := url.Parse(c.Endpoint)
-	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil {
-		return c, errors.New("invalid inference endpoint")
-	}
-	if c.ClientID == "" || c.ClientSecret == "" || c.Model == "" {
-		return c, errors.New("OIDC client credentials and model required")
-	}
-	for i, g := range c.Groups {
-		c.Groups[i] = strings.TrimSpace(g)
-		if c.Groups[i] == "" {
-			return c, errors.New("empty allowed group")
-		}
-	}
-	return c, nil
-}
 
 type App struct {
 	cfg    Config
@@ -200,7 +42,11 @@ func (a *App) release(user string) { a.mu.Lock(); delete(a.active, user); a.mu.U
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		if response, ok := w.(*recordedResponse); ok {
+			response.recorder.fail("response_encoding")
+		}
+	}
 }
 func problem(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
@@ -239,7 +85,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/conversations/{id}/messages", a.api(a.message))
 	web, _ := fs.Sub(assets, "web")
 	mux.Handle("GET /", http.FileServer(http.FS(web)))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return recordRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -249,7 +95,7 @@ func (a *App) routes() http.Handler {
 			return
 		}
 		mux.ServeHTTP(w, r)
-	})
+	}), slog.Default().Handler())
 }
 func (a *App) api(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

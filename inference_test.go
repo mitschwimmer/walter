@@ -363,3 +363,24 @@ func TestFollowUpModes(t *testing.T) {
 		t.Fatal("rejected prompt changed conversation", saved, err)
 	}
 }
+
+func TestSSEEventBudget(t *testing.T) {
+	for _, tc := range []struct {
+		name, stream string
+		valid        bool
+		events       int
+	}{
+		{"many small lines", strings.Repeat("data: abcdefghijklmnop\n", maxSSEEventBytes/16) + "\n", false, 0},
+		{"many empty lines", strings.Repeat("data:\n", maxSSEEventBytes+1) + "\n", false, 0},
+		{"single long line", "data: " + strings.Repeat("x", maxSSEEventBytes) + "\n\n", false, 0},
+		{"budget resets", strings.Repeat("data: "+strings.Repeat("x", 65536)+"\n\n", 32), true, 32},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			events := 0
+			err := consumeSSE(strings.NewReader(tc.stream), func(string) error { events++; return nil })
+			if (err == nil) != tc.valid || events != tc.events {
+				t.Fatalf("events=%d, error=%v", events, err)
+			}
+		})
+	}
+}

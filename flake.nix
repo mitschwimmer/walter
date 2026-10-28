@@ -38,8 +38,6 @@
         packages = with pkgs; [
           go
           gopls
-          helix
-          fish
           sops
           age
           nodejs
