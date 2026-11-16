@@ -48,7 +48,10 @@ Read [configuration and behavior](references/configuration.md) for environment v
 
 Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. CI publishes images from main and version tags; install by digest. Keep infrastructure configuration in its owning repository.
 
-Inspect failed-request flight recorder output by request correlation and fixed operation/error fields. Successful requests are silent. Startup/background failures log immediately. The recorder retains at most 128
+Inspect failed-request flight recorder output by request correlation, static route patterns,
+fixed authentication/rejection reasons, and operation/error fields. Distinguish
+session_expired from session_unknown (a restart or unknown cookie) and cookie_missing.
+ID-token expiry is checked during OIDC login; local sessions use WALTER_SESSION_TTL. Successful requests are silent. Startup/background failures log immediately. The recorder retains at most 128
 records, reports dropped records on failure, and replays original levels/times
 through the sink threshold. Use only fixed operational strings with the allowed
 keys in `redactAttrs`; unknown messages/attributes are redacted before capture.
