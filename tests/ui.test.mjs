@@ -129,9 +129,31 @@ try {
   await page.locator('#content').fill('');
   await page.locator('#quick').focus();
   await page.locator('#content').focus();
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
+  const focusStyle = await page.locator('#content').evaluate(el => {
+    const style = getComputedStyle(el);
+    return { outline: style.outlineStyle, width: style.outlineWidth,
+      offset: style.outlineOffset, outlineColor: style.outlineColor, borderColor: style.borderTopColor };
+  });
+  assert.equal(focusStyle.outline, 'solid');
+  assert.equal(focusStyle.width, '1px');
+  assert.equal(focusStyle.offset, '0px');
+  assert.equal(focusStyle.outlineColor, focusStyle.borderColor);
   assert.equal(await page.locator('#content').getAttribute('placeholder'), 'Was möchtest du wissen?');
-  assert.equal(await page.locator('.headline').evaluate(el => getComputedStyle(el).textAlign), 'right');
+  const welcomeLayout = await page.evaluate(() => {
+    const headline = document.querySelector('.headline');
+    const composer = document.querySelector('#composer');
+    const title = headline.getBoundingClientRect();
+    const input = composer.getBoundingClientRect();
+    const style = getComputedStyle(headline);
+    return { textAlign: style.textAlign, fontWeight: style.fontWeight,
+      headlineCenter: title.left + title.width / 2, composerCenter: input.left + input.width / 2,
+      viewportCenter: innerWidth / 2, gap: input.top - title.bottom };
+  });
+  assert.equal(welcomeLayout.textAlign, 'start');
+  assert.equal(welcomeLayout.fontWeight, '500');
+  assert.ok(Math.abs(welcomeLayout.headlineCenter - welcomeLayout.viewportCenter) < 2, 'welcome headline centered');
+  assert.ok(Math.abs(welcomeLayout.composerCenter - welcomeLayout.viewportCenter) < 2, 'question composer centered');
+  assert.ok(welcomeLayout.gap >= 48, 'welcome headline and composer need breathing room');
   assert.ok((await page.locator('.headline').evaluate(el => getComputedStyle(el).backgroundImage)).includes('headline-overlay.svg'));
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.emulateMedia({ forcedColors: 'active' });
@@ -368,6 +390,9 @@ try {
   await page.locator('#new').click();
   await state('start');
   await inputFocused();
+  await page.setViewportSize({ width: 320, height: 844 });
+  await noOverflow();
+  await screenshot('start-small-mobile');
   await page.setViewportSize({ width: 390, height: 844 });
   await noOverflow();
   await screenshot('start-mobile');
