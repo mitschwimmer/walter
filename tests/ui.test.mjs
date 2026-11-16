@@ -129,6 +129,11 @@ try {
   await page.locator('#content').fill('');
   await page.locator('#quick').focus();
   await page.locator('#content').focus();
+  // Oat transitions the input border color for 120ms; assert its settled state.
+  await page.waitForFunction(() => {
+    const style = getComputedStyle(document.querySelector('#content'));
+    return style.outlineColor === style.borderTopColor;
+  });
   const focusStyle = await page.locator('#content').evaluate(el => {
     const style = getComputedStyle(el);
     return { outline: style.outlineStyle, width: style.outlineWidth,
