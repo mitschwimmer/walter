@@ -198,6 +198,25 @@ try {
   assert.equal(await page.locator('#context-info').textContent(), 'Kontext: 50% · 8.192 / 16.384 Tokens');
   assert.equal(await page.locator('#context-info').isVisible(), true);
   assert.equal(await page.locator('.assistant table').count(), 1);
+  assert.equal(await page.locator('.assistant').first().evaluate(el => el.tagName), 'ARTICLE');
+  const articleLayout = await page.locator('.assistant .message-content').first().evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const parent = el.closest('article').getBoundingClientRect();
+    const code = el.querySelector('pre');
+    const table = el.querySelector('table');
+    return {
+      centered: Math.abs(box.left + box.width / 2 - (parent.left + parent.width / 2)) < 2,
+      proseNarrower: box.width < parent.width,
+      codeWrap: getComputedStyle(code).whiteSpace,
+      codeScrollable: code.scrollWidth > code.clientWidth,
+      tableWrap: getComputedStyle(table.querySelector('td')).whiteSpace,
+    };
+  });
+  assert.equal(articleLayout.centered, true);
+  assert.equal(articleLayout.proseNarrower, true);
+  assert.equal(articleLayout.codeWrap, 'pre');
+  assert.equal(articleLayout.codeScrollable, true);
+  assert.equal(articleLayout.tableWrap, 'nowrap');
   assert.equal(await page.locator('#quick').isVisible(), true);
   assert.equal(await page.locator('#thoughtful').isVisible(), true);
   await page.locator('.skip-link').focus();
@@ -220,7 +239,8 @@ try {
         error: style('.error').backgroundColor,
       };
     });
-    assert.equal(colors.scheme, scheme);
+    assert.ok(colors.scheme.includes('light') && colors.scheme.includes('dark'));
+    assert.equal(await page.locator('.headline').isVisible(), false);
     if (scheme === 'dark') {
       assert.equal(colors.background, 'rgb(23, 29, 26)');
       assert.equal(colors.foreground, 'rgb(236, 237, 228)');
