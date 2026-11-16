@@ -348,20 +348,21 @@ try {
   assert.equal(submissions.length, 4);
   assert.equal(await page.locator('#quick').isVisible(), true);
   assert.equal(await page.locator('#thoughtful').isVisible(), true);
-  for (const width of [320, 390, 480, 768]) {
+  // 48rem is 768px at the default root font size. Exercise both sides
+  // of that inclusive tablet breakpoint without changing the reading style.
+  for (const width of [320, 390, 480, 768, 769]) {
     await page.setViewportSize({ width, height: 844 });
     await noOverflow();
+    const reading = await page.locator('.assistant .message-content').first().evaluate(el => ({
+      width: el.getBoundingClientRect().width,
+      fontSize: getComputedStyle(el).fontSize,
+    }));
     if (width <= 480) {
-      const reading = await page.locator('.assistant .message-content').first().evaluate(el => ({
-        width: el.getBoundingClientRect().width,
-        fontSize: getComputedStyle(el).fontSize,
-      }));
       assert.ok(reading.width >= width - 60, 'phone replies use the available reading width');
-      assert.equal(reading.fontSize, '16px');
       assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).fontSize), '16px');
-    } else {
-      assert.equal(await page.locator('.assistant .message-content').first().evaluate(el => getComputedStyle(el).fontSize), '18px');
     }
+    assert.equal(reading.fontSize, width <= 768 ? '16px' : '18px',
+      'reply typography must follow the 48rem responsive breakpoint');
     await screenshot(`conversation-${width}`);
   }
   await page.locator('#new').click();
