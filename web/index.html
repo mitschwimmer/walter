@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1d2021" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f5ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#171d1a" media="(prefers-color-scheme: dark)">
   <title>Walter · Frag’s Pferd.</title>
   <link rel="icon" href="/walter.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/oat.css">
+  <link rel="stylesheet" href="/archaic-theme.css">
   <link rel="stylesheet" href="/style.css">
   <script type="module" src="/app.js"></script>
 </head>
@@ -23,34 +25,34 @@
   <main id="main" tabindex="-1">
     <h1 class="headline">Frag’s Pferd.<br>Walter weiß es.</h1>
     <p id="loading" class="muted" role="status">Walter wird geladen …</p>
-    <section id="login" class="panel login-panel" aria-labelledby="login-title" hidden>
+    <section id="login" class="login-panel" aria-labelledby="login-title" hidden>
       <h2 id="login-title">Deine nächste Frage?</h2>
       <p>Melde dich an, um Walter zu fragen und deine Gespräche wiederzufinden.</p>
-      <a class="mode thoughtful" href="/auth/login">Anmelden</a>
+      <a class="button" href="/auth/login">Anmelden</a>
     </section>
     <section id="chat" aria-label="Gespräch mit Walter" hidden>
-      <h2 id="conversation-title" class="sr-only">Neue Frage</h2>
+      <header class="conversation-heading" hidden><h2 id="conversation-title">Neue Frage</h2><button id="delete" class="ghost" data-variant="danger" type="button">Gespräch löschen</button></header>
       <div id="messages" role="log" aria-label="Nachrichten" aria-live="off"></div>
-      <div id="conversation-tools" hidden><span id="mode-label" class="muted"></span><button id="delete" type="button">Gespräch löschen</button></div>
+      
       <form id="composer">
         <div id="prompt-input">
-          <label id="composer-label" class="sr-only" for="content">Deine Frage</label>
-          <textarea id="content" rows="5" maxlength="16000" placeholder="Was möchtest du wissen?" aria-describedby="composer-help" required disabled></textarea>
-          <p id="composer-help" class="sr-only">Enter sendet im aktuellen Modus (bei einer neuen Frage: schnell). Umschalt+Enter fügt einen Zeilenumbruch ein.</p>
+          <label id="composer-label" for="content">Deine Frage</label>
+          <textarea id="content" rows="3" maxlength="16000" placeholder="Was möchtest du wissen?" aria-describedby="composer-help" required disabled></textarea>
+          <p id="composer-help" class="sr-only">Enter fügt einen Zeilenumbruch ein. Wähle für jede Frage schnell oder bedacht, um sie zu senden.</p>
         </div>
         <div class="composer-actions">
-          <p id="context-info" class="muted" title="Gespräch einschließlich Systemprompt und nächster Nachrichtenrahmen, ohne deine nächste Frage." hidden></p>
-          <p id="context-full" class="muted" hidden>Kontext voll. <a href="#" class="text-link">Neue Frage starten ↗</a></p>
           <span id="activity" role="status"></span>
-          <button id="stop" class="stop" type="button" hidden>Antwort stoppen</button>
-          <button id="quick" class="mode quick" name="thinking" value="quick" title="Schnell antworten" disabled>schnell</button>
-          <button id="thoughtful" class="mode thoughtful" name="thinking" value="thoughtful" title="Bedacht antworten" disabled>bedacht</button>
+          <button id="stop" class="outline" type="button" hidden>Antwort stoppen</button>
+          <button id="quick" type="submit" name="thinking" value="quick" title="Schnell antworten" disabled>schnell</button>
+          <button id="thoughtful" type="submit" name="thinking" value="thoughtful" title="Bedacht antworten" disabled>bedacht</button>
         </div>
+        <p id="context-info" class="muted" title="Gespräch einschließlich Systemprompt und nächster Nachrichtenrahmen, ohne deine nächste Frage." hidden></p>
+        <p id="context-full" class="muted" hidden>Kontext voll. <a href="#" class="text-link">Neue Frage starten</a></p>
       </form>
       <p id="draft-hint" class="muted" hidden>Deine Frage bleibt im Eingabefeld. Prüfe das Gespräch vor einem erneuten Senden.</p>
     </section>
     <section id="history" aria-labelledby="history-title" hidden>
-      <div class="view-heading"><h2 id="history-title" tabindex="-1">Historie</h2><a href="#" class="text-link">Neue Frage ↗</a></div>
+      <header class="view-heading"><h2 id="history-title" tabindex="-1">Historie</h2><a href="#" class="text-link">Neue Frage</a></header>
       <p id="history-status" class="muted" role="status"></p>
       <ul id="chats" class="conversation-list"></ul>
     </section>
@@ -58,6 +60,6 @@
   <footer id="footer" class="site-footer" aria-label="Seiteninformationen" hidden><a id="imprint" hidden>Impressum</a><a id="privacy" hidden>Datenschutz</a><small id="revision" class="build-revision" hidden></small></footer>
   <div id="error" class="error" role="alert" hidden><p id="error-message"></p><button id="dismiss-error" type="button" aria-label="Fehlermeldung schließen">×</button></div>
   <dialog id="delete-dialog" aria-labelledby="delete-title"><form method="dialog"><h2 id="delete-title">Gespräch löschen?</h2><p>Das Gespräch wird endgültig gelöscht.</p><div class="dialog-actions"><button value="cancel" autofocus>Behalten</button><button id="confirm-delete" class="danger" value="delete">Löschen</button></div></form></dialog>
-  <noscript><p class="panel">Bitte aktiviere JavaScript, um Walter zu nutzen.</p></noscript>
+  <noscript><p>Bitte aktiviere JavaScript, um Walter zu nutzen.</p></noscript>
 </body>
 </html>
