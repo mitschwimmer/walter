@@ -163,6 +163,7 @@ body[data-view="history"] .headline { display: none; }
   .response-loader::before { forced-color-adjust: none; }
 }
 
+.response-status { color: var(--archaic-muted-ink); font-family: sans-serif; }
 #composer { max-width: 68ch; margin: 1.5rem auto 0; }
 #composer #prompt-input label { display: block; font: 600 .875rem/1.4 sans-serif; margin-block-end: .4rem; }
 #composer textarea { width: 100%; min-height: 6rem; max-height: 65vh; resize: vertical;
