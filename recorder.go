@@ -118,7 +118,7 @@ func (f *requestRecorder) finish(ctx context.Context) {
 func redactRecord(record slog.Record) slog.Record {
 	message := record.Message
 	switch message {
-	case "request started", "request completed", "operation failed", "inference started", "inference completed", "reply persisted":
+	case "request started", "request routed", "request rejected", "authentication rejected", "request completed", "operation failed", "inference started", "inference completed", "reply persisted":
 	default:
 		message = "diagnostic event"
 	}
@@ -141,6 +141,10 @@ func redactAttrs(attrs []slog.Attr) []slog.Attr {
 			if value.Kind() == slog.KindString {
 				safe = append(safe, slog.String(attr.Key, boundedDiagnostic(value.String())))
 			}
+		case "route", "auth_reason", "rejection_reason":
+			if value.Kind() == slog.KindString && knownDiagnosticValue(attr.Key, value.String()) {
+				safe = append(safe, slog.String(attr.Key, value.String()))
+			}
 		case "status_code", "errno":
 			if value.Kind() == slog.KindInt64 {
 				safe = append(safe, slog.Int64(attr.Key, value.Int64()))
@@ -153,6 +157,39 @@ func redactAttrs(attrs []slog.Attr) []slog.Attr {
 	}
 	return safe
 }
+// These are static route patterns and rejection codes, never request paths,
+// query parameters, cookie values or provider-supplied error descriptions.
+func knownDiagnosticValue(key, value string) bool {
+	switch key {
+	case "route":
+		switch value {
+		case "GET /api/site", "GET /healthz", "GET /auth/login", "GET /auth/callback",
+			"POST /auth/logout", "GET /api/session", "GET /api/conversations",
+			"POST /api/conversations", "GET /api/conversations/{id}",
+			"DELETE /api/conversations/{id}", "POST /api/conversations/{id}/messages",
+			"GET /", "unmatched":
+			return true
+		}
+	case "auth_reason":
+		switch value {
+		case "cookie_missing", "cookie_invalid", "session_expired", "session_unknown",
+			"csrf_invalid", "login_flows_full", "login_state_invalid",
+			"login_flow_missing", "login_flow_expired", "token_exchange_failed",
+			"identity_missing", "identity_invalid", "groups_invalid",
+			"groups_denied", "sessions_full":
+			return true
+		}
+	case "rejection_reason":
+		switch value {
+		case "origin_invalid", "invalid_json", "invalid_thinking", "invalid_content",
+			"generation_active", "conversation_missing", "history_too_large",
+			"model_changed", "context_full":
+			return true
+		}
+	}
+	return false
+}
+
 func boundedDiagnostic(s string) string {
 	if len(s) > 128 {
 		return s[:128]
