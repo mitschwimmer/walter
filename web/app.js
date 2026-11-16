@@ -39,7 +39,7 @@ function view(name) {
   document.title = name === 'history' ? 'Historie · Walter' : current ? `${current.title} · Walter` : 'Walter · Frag’s Pferd.';
 }
 function bubble(m) {
-  const section = document.createElement('section');
+  const section = document.createElement(m.role === 'assistant' ? 'article' : 'section');
   section.className = `message ${m.role}`;
   section.setAttribute('aria-label', m.role === 'user' ? 'Deine Frage' : 'Walters Antwort');
   const body = document.createElement('div');
@@ -70,9 +70,8 @@ function bubble(m) {
 }
 function updateComposer() {
   const started = current?.messages.length > 0;
-  $('conversation-tools').hidden = !current;
+  document.querySelector('.conversation-heading').hidden = !started;
   $('conversation-title').textContent = current?.title || 'Neue Frage';
-  $('mode-label').textContent = current?.thinking === 'thoughtful' ? 'bedacht' : 'schnell';
   $('composer-label').textContent = started ? 'Deine nächste Frage' : 'Deine Frage';
   $('content').placeholder = started ? 'Was möchtest du noch wissen?' : 'Was möchtest du wissen?';
   busy(!!controller);
@@ -257,19 +256,14 @@ async function reloadReply(id) {
     }
   } finally { recovering = false; busy(false); }
 }
-$('content').addEventListener('keydown', e => {
-  if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.isComposing || e.keyCode === 229) return;
-  e.preventDefault();
-  if (e.repeat || !$('content').value.trim()) return;
-  const submitter = $(current?.thinking || 'quick');
-  if (!submitter.disabled) $('composer').requestSubmit(submitter);
-});
 $('composer').onsubmit = async e => {
   e.preventDefault();
   if (controller || recovering || !authenticated) return;
   const text = $('content').value.trim();
   if (!text) { $('content').focus(); return; }
-  const thinking = e.submitter?.value || current?.thinking || 'quick';
+  // Never silently choose a thinking mode, including for keyboard submission.
+  const thinking = e.submitter?.value;
+  if (thinking !== 'quick' && thinking !== 'thoughtful') return;
   if (contextFull(thinking)) return;
   clearError();
   $('draft-hint').hidden = true;
@@ -288,12 +282,12 @@ $('composer').onsubmit = async e => {
     const response = await api(`/api/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: text, thinking }), signal: controller.signal });
     accepted = true;
     current.thinking = thinking;
-    $('mode-label').textContent = thinking === 'thoughtful' ? 'bedacht' : 'schnell';
     $('content').value = '';
     bubble({ role: 'user', content: text, status: 'complete' });
     target = bubble({ role: 'assistant', content: '', status: 'pending' });
     view('conversation');
-    $('conversation-tools').hidden = false;
+    document.querySelector('.conversation-heading').hidden = false;
+    $('conversation-title').textContent = current.title || 'Gespräch';
     $('content').placeholder = 'Was möchtest du noch wissen?';
     $('composer-label').textContent = 'Deine nächste Frage';
     await readEvents(response.body, (name, data) => {

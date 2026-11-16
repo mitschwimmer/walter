@@ -14,7 +14,7 @@ Keep one Go process and the current cohesive `main` package; extract boundaries 
 - Read `store.go` for per-user JSON. Keep one writer per data directory, atomic replacement, file/directory syncing, and recovery of pending replies before serving traffic.
 - Read `inference.go`, `context.go` and `markdown.go` for upstream SSE, optional token counts and rendering. Preserve prompt/credential redirect rejection, separated reasoning disposal, cancellation, partial-answer persistence and bounded handoffs. Join request goroutines before returning.
 - Read `diagnostics.go` and `recorder.go` before adding logs. Use `requestLogger(ctx)` and fixed diagnostic messages/attributes; never log prompts, tokens, URLs, user IDs or arbitrary error strings. Use `logFailure` at handling boundaries, including handled dependency failures.
-- Read `web/app.js`, `web/sse.js`, `web/index.html` and `web/style.css` for the German UI. Store original Markdown, render assistant HTML on the server, and keep user text plain.
+- Read `web/app.js`, `web/sse.js`, `web/index.html`, `web/oat.css`, `web/archaic-theme.css` and `web/style.css` for the German UI. Oat v1.0.0's vendored CSS subset provides native control styles; the shared Archaic Heritage stylesheet comes next, followed by Walter-specific layout. Keep frontend assets embedded and free of a build step. Preserve Walter's original horse SVG and layered colorful headline only on the welcome/start screen. Render user prompts as quiet chat blocks and server-rendered assistant Markdown as centered, narrow articles; code and tables scroll horizontally rather than wrapping. Both `schnell` and `bedacht` are explicit submit buttons; Enter inserts a newline and must not submit implicitly. Store original Markdown, render assistant HTML on the server, and keep user text plain.
 - Keep API and stored JSON compatible with existing clients and conversations. `done` means a complete reply was synced; a lost response requires reopening before retrying.
 
 ## Develop and verify
@@ -48,7 +48,10 @@ Read [configuration and behavior](references/configuration.md) for environment v
 
 Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. CI publishes images from main and version tags; install by digest. Keep infrastructure configuration in its owning repository.
 
-Inspect failed-request flight recorder output by request correlation and fixed operation/error fields. Successful requests are silent. Startup/background failures log immediately. The recorder retains at most 128
+Inspect failed-request flight recorder output by request correlation, static route patterns,
+fixed authentication/rejection reasons, and operation/error fields. Distinguish
+session_expired from session_unknown (a restart or unknown cookie) and cookie_missing.
+ID-token expiry is checked during OIDC login; local sessions use WALTER_SESSION_TTL. Successful requests are silent. Startup/background failures log immediately. The recorder retains at most 128
 records, reports dropped records on failure, and replays original levels/times
 through the sink threshold. Use only fixed operational strings with the allowed
 keys in `redactAttrs`; unknown messages/attributes are redacted before capture.

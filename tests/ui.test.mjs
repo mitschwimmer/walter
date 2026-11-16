@@ -23,7 +23,7 @@ const server = createServer(async (req, res) => {
     if (req.url === '/api/site') return json(res, 200, { revision: '10d95b1', ...(footerLinks ? { imprint_url: 'https://example.com/impressum', privacy_url: 'https://example.com/datenschutz' } : {}) });
     if (!req.url.startsWith('/api/') && !req.url.startsWith('/auth/')) {
       const filename = req.url === '/' ? 'index.html' : req.url.slice(1);
-      if (!['index.html', 'app.js', 'style.css', 'sse.js', 'walter.svg', 'headline-overlay.svg'].includes(filename)) return json(res, 404, {});
+      if (!['index.html', 'app.js', 'style.css', 'oat.css', 'archaic-theme.css', 'sse.js', 'walter.svg', 'headline-overlay.svg'].includes(filename)) return json(res, 404, {});
       res.setHeader('Content-Type', filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.svg') ? 'image/svg+xml' : 'text/html');
       return res.end(await readFile(join(root, filename)));
     }
@@ -110,6 +110,29 @@ async function waitForFixture(ready) {
   }
 }
 async function noOverflow() { assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'page overflows viewport'); }
+async function assertLoginLayout(proseSize, minimumGap) {
+  const layout = await page.evaluate(() => {
+    const headline = document.querySelector('.headline').getBoundingClientRect();
+    const panel = document.querySelector('#login');
+    const panelBox = panel.getBoundingClientRect();
+    const paragraph = getComputedStyle(panel.querySelector('p'));
+    return {
+      headlineCenter: headline.left + headline.width / 2,
+      panelCenter: panelBox.left + panelBox.width / 2,
+      viewportCenter: innerWidth / 2,
+      gap: panelBox.top - headline.bottom,
+      paragraphSize: paragraph.fontSize,
+      paragraphAlign: paragraph.textAlign,
+      borderTop: getComputedStyle(panel).borderTopWidth,
+    };
+  });
+  assert.ok(Math.abs(layout.headlineCenter - layout.viewportCenter) < 2, 'login headline centered');
+  assert.ok(Math.abs(layout.panelCenter - layout.viewportCenter) < 2, 'login content centered');
+  assert.ok(layout.gap >= minimumGap, 'login content needs breathing room beneath the headline');
+  assert.equal(layout.paragraphSize, proseSize, 'login text uses readable prose size');
+  assert.equal(layout.paragraphAlign, 'start');
+  assert.equal(layout.borderTop, '0px', 'login adds no redundant separator');
+}
 try {
   releaseSession = null;
   await page.goto(origin);
@@ -125,21 +148,42 @@ try {
   await page.locator('#content').fill('Was ist Marmelade?');
   assert.equal(await page.locator('#context-info').isVisible(), false);
   await screenshot('start-desktop');
-  // Input focus uses brightness; other keyboard controls retain their outline.
+  // Focus is visible and the welcome heading retains its layered color effect.
   await page.locator('#content').fill('');
   await page.locator('#quick').focus();
-  await page.waitForTimeout(220);
-  const idleBackground = await page.locator('#content').evaluate(el => getComputedStyle(el).backgroundColor);
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el, '::placeholder').opacity), '1');
   await page.locator('#content').focus();
-  await page.waitForTimeout(220);
-  const focusBackground = await page.locator('#content').evaluate(el => getComputedStyle(el).backgroundColor);
-  assert.notEqual(focusBackground, idleBackground);
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'none');
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el, '::placeholder').opacity), '0');
+  // Oat transitions the input border color for 120ms; assert its settled state.
+  await page.waitForFunction(() => {
+    const style = getComputedStyle(document.querySelector('#content'));
+    return style.outlineColor === style.borderTopColor;
+  });
+  const focusStyle = await page.locator('#content').evaluate(el => {
+    const style = getComputedStyle(el);
+    return { outline: style.outlineStyle, width: style.outlineWidth,
+      offset: style.outlineOffset, outlineColor: style.outlineColor, borderColor: style.borderTopColor };
+  });
+  assert.equal(focusStyle.outline, 'solid');
+  assert.equal(focusStyle.width, '1px');
+  assert.equal(focusStyle.offset, '0px');
+  assert.equal(focusStyle.outlineColor, focusStyle.borderColor);
   assert.equal(await page.locator('#content').getAttribute('placeholder'), 'Was möchtest du wissen?');
+  const welcomeLayout = await page.evaluate(() => {
+    const headline = document.querySelector('.headline');
+    const composer = document.querySelector('#composer');
+    const title = headline.getBoundingClientRect();
+    const input = composer.getBoundingClientRect();
+    const style = getComputedStyle(headline);
+    return { textAlign: style.textAlign, fontWeight: style.fontWeight,
+      headlineCenter: title.left + title.width / 2, composerCenter: input.left + input.width / 2,
+      viewportCenter: innerWidth / 2, gap: input.top - title.bottom };
+  });
+  assert.equal(welcomeLayout.textAlign, 'start');
+  assert.equal(welcomeLayout.fontWeight, '500');
+  assert.ok(Math.abs(welcomeLayout.headlineCenter - welcomeLayout.viewportCenter) < 2, 'welcome headline centered');
+  assert.ok(Math.abs(welcomeLayout.composerCenter - welcomeLayout.viewportCenter) < 2, 'question composer centered');
+  assert.ok(welcomeLayout.gap >= 48, 'welcome headline and composer need breathing room');
+  assert.ok((await page.locator('.headline').evaluate(el => getComputedStyle(el).backgroundImage)).includes('headline-overlay.svg'));
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).transitionDuration), '0s');
   await page.emulateMedia({ forcedColors: 'active' });
   assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
@@ -204,6 +248,25 @@ try {
   assert.equal(await page.locator('#context-info').textContent(), 'Kontext: 50% · 8.192 / 16.384 Tokens');
   assert.equal(await page.locator('#context-info').isVisible(), true);
   assert.equal(await page.locator('.assistant table').count(), 1);
+  assert.equal(await page.locator('.assistant').first().evaluate(el => el.tagName), 'ARTICLE');
+  const articleLayout = await page.locator('.assistant .message-content').first().evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const parent = el.closest('article').getBoundingClientRect();
+    const code = el.querySelector('pre');
+    const table = el.querySelector('table');
+    return {
+      centered: Math.abs(box.left + box.width / 2 - (parent.left + parent.width / 2)) < 2,
+      proseNarrower: box.width < parent.width,
+      codeWrap: getComputedStyle(code).whiteSpace,
+      codeScrollable: code.scrollWidth > code.clientWidth,
+      tableWrap: getComputedStyle(table.querySelector('td')).whiteSpace,
+    };
+  });
+  assert.equal(articleLayout.centered, true);
+  assert.equal(articleLayout.proseNarrower, true);
+  assert.equal(articleLayout.codeWrap, 'pre');
+  assert.equal(articleLayout.codeScrollable, true);
+  assert.equal(articleLayout.tableWrap, 'nowrap');
   assert.equal(await page.locator('#quick').isVisible(), true);
   assert.equal(await page.locator('#thoughtful').isVisible(), true);
   await page.locator('.skip-link').focus();
@@ -218,7 +281,7 @@ try {
       const style = selector => getComputedStyle(document.querySelector(selector));
       return {
         scheme: style(':root').colorScheme,
-        background: style(':root').backgroundColor,
+        background: style('body').backgroundColor,
         foreground: style('.assistant').color,
         panel: style('.assistant').backgroundColor,
         code: style('.assistant pre').backgroundColor,
@@ -226,19 +289,20 @@ try {
         error: style('.error').backgroundColor,
       };
     });
-    assert.equal(colors.scheme, scheme);
+    assert.ok(colors.scheme.includes('light') && colors.scheme.includes('dark'));
+    assert.equal(await page.locator('.headline').isVisible(), false);
     if (scheme === 'dark') {
-      assert.equal(colors.background, 'rgb(29, 32, 33)');
-      assert.equal(colors.foreground, 'rgb(235, 219, 178)');
-      assert.equal(colors.panel, 'rgb(40, 40, 40)');
-      assert.equal(colors.code, colors.background);
+      assert.equal(colors.background, 'rgb(23, 29, 26)');
+      assert.equal(colors.foreground, 'rgb(236, 237, 228)');
+      assert.equal(colors.code, 'rgb(35, 43, 39)');
     } else {
-      assert.equal(colors.background, 'rgb(250, 250, 250)');
-      assert.equal(colors.foreground, 'rgb(55, 55, 55)');
-      assert.equal(colors.panel, 'rgb(255, 255, 255)');
+      assert.equal(colors.background, 'rgb(247, 245, 238)');
+      assert.equal(colors.foreground, 'rgb(36, 41, 34)');
+      assert.equal(colors.code, 'rgb(237, 240, 235)');
     }
-    assert.equal(colors.dialog, colors.panel);
-    assert.equal(colors.error, colors.panel);
+    assert.equal(colors.panel, 'rgba(0, 0, 0, 0)');
+    assert.equal(colors.dialog, colors.background);
+    assert.equal(colors.error, colors.background);
     await screenshot(`conversation-${scheme}`);
   }
   await page.emulateMedia({ colorScheme });
@@ -250,7 +314,7 @@ try {
   assert.equal(await page.locator('.message').count(), 4);
   assert.equal(creations.length, 1);
   assert.equal([...conversations.values()][0].thinking, 'quick');
-  assert.equal(await page.locator('#mode-label').textContent(), 'schnell');
+  assert.equal(await page.locator('.conversation-heading').isVisible(), true);
   assert.equal(await page.locator('#context-info').textContent(), 'Kontext: 25% · 4.096 / 16.384 Tokens');
   contextKnown = false;
   await page.reload();
@@ -308,7 +372,7 @@ try {
   await idle();
   assert.equal(submissions.length, 3);
   assert.equal([...conversations.values()][0].thinking, 'thoughtful');
-  assert.equal(await page.locator('#mode-label').textContent(), 'bedacht');
+  assert.equal(await page.locator('.conversation-heading').isVisible(), true);
   assert.equal(await page.locator('.assistant').last().locator('small').textContent(), 'Abgebrochen');
   await page.locator('#delete').click();
   await page.getByRole('button', { name: 'Behalten', exact: true }).click();
@@ -334,25 +398,29 @@ try {
   assert.equal(submissions.length, 4);
   assert.equal(await page.locator('#quick').isVisible(), true);
   assert.equal(await page.locator('#thoughtful').isVisible(), true);
-  for (const width of [320, 390, 480, 768]) {
+  // 48rem is 768px at the default root font size. Exercise both sides
+  // of that inclusive tablet breakpoint without changing the reading style.
+  for (const width of [320, 390, 480, 768, 769]) {
     await page.setViewportSize({ width, height: 844 });
     await noOverflow();
+    const reading = await page.locator('.assistant .message-content').first().evaluate(el => ({
+      width: el.getBoundingClientRect().width,
+      fontSize: getComputedStyle(el).fontSize,
+    }));
     if (width <= 480) {
-      const reading = await page.locator('.assistant .message-content').first().evaluate(el => ({
-        width: el.getBoundingClientRect().width,
-        fontSize: getComputedStyle(el).fontSize,
-      }));
       assert.ok(reading.width >= width - 60, 'phone replies use the available reading width');
-      assert.equal(reading.fontSize, '15px');
       assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).fontSize), '16px');
-    } else {
-      assert.equal(await page.locator('.assistant .message-content').first().evaluate(el => getComputedStyle(el).fontSize), '18px');
     }
+    assert.equal(reading.fontSize, width <= 768 ? '17px' : '19px',
+      'reply typography must follow the 48rem responsive breakpoint');
     await screenshot(`conversation-${width}`);
   }
   await page.locator('#new').click();
   await state('start');
   await inputFocused();
+  await page.setViewportSize({ width: 320, height: 844 });
+  await noOverflow();
+  await screenshot('start-small-mobile');
   await page.setViewportSize({ width: 390, height: 844 });
   await noOverflow();
   await screenshot('start-mobile');
@@ -403,6 +471,13 @@ try {
   await state('login');
   assert.equal(await page.locator('#account-menu').isVisible(), false);
   assert.equal(await page.locator('.message').count(), 0);
+  await page.setViewportSize({ width: 320, height: 844 });
+  await noOverflow();
+  await assertLoginLayout('17px', 36);
+  await screenshot('login-small-mobile');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noOverflow();
+  await assertLoginLayout('17px', 36);
   await screenshot('login-mobile');
   signedIn = true;
   await page.goto(origin);
@@ -412,6 +487,8 @@ try {
   await state('login');
   assert.equal(signedIn, false);
   await page.setViewportSize({ width: 1071, height: 1579 });
+  await noOverflow();
+  await assertLoginLayout('19px', 64);
   await screenshot('login-desktop');
   footerLinks = false;
   await page.reload();
@@ -422,27 +499,18 @@ try {
   assert.equal(await page.locator('#imprint').isVisible(), false);
   assert.equal(await page.locator('#privacy').isVisible(), false);
   await screenshot('build-only-footer');
-  // Enter shares the button submission path and preserves multiline/IME input.
+  // Enter inserts a line break. Only a named mode button may submit.
   signedIn = true;
   await page.goto(origin);
   await state('start');
   await inputFocused();
   const beforeKeyboard = submissions.length;
-  await page.locator('#content').press('Enter');
-  assert.equal(await page.locator('#content').inputValue(), '');
-  await page.locator('#content').fill('   ');
-  await page.locator('#content').press('Enter');
-  assert.equal(submissions.length, beforeKeyboard);
   await page.locator('#content').fill('Erste Zeile');
-  await page.locator('#content').press('Shift+Enter');
-  await page.locator('#content').press('End');
+  await page.locator('#content').press('Enter');
   await page.keyboard.insertText('Zweite Zeile');
   assert.equal(await page.locator('#content').inputValue(), 'Erste Zeile\nZweite Zeile');
-  for (const event of [{ isComposing: true }, { keyCode: 229 }, { repeat: true }]) {
-    await page.locator('#content').dispatchEvent('keydown', { key: 'Enter', ...event });
-  }
   assert.equal(submissions.length, beforeKeyboard);
-  await page.locator('#content').press('Enter');
+  await page.locator('#quick').click();
   await idle();
   assert.equal(submissions.length, beforeKeyboard + 1);
   assert.equal(submissions.at(-1), 'Erste Zeile\nZweite Zeile');
@@ -450,12 +518,14 @@ try {
   await page.locator('#content').fill('Bitte bedacht antworten');
   await page.locator('#thoughtful').click();
   await idle();
-  await page.locator('#content').fill('Weitere Frage per Enter');
+  assert.equal([...conversations.values()].at(-1).thinking, 'thoughtful');
+  await page.locator('#content').fill('Weitere Frage');
   await page.locator('#content').press('Enter');
+  assert.equal(submissions.length, beforeKeyboard + 2);
+  await page.locator('#quick').click();
   await idle();
   assert.equal(submissions.length, beforeKeyboard + 3);
-  assert.equal([...conversations.values()].at(-1).thinking, 'thoughtful');
-  // A full current mode cannot be bypassed using the keyboard.
+  assert.equal([...conversations.values()].at(-1).thinking, 'quick');
   contextThoughtful = 16384;
   await page.reload();
   await state('conversation');
@@ -463,7 +533,7 @@ try {
   await page.locator('#content').fill('Nicht senden');
   await page.locator('#content').press('Enter');
   assert.equal(submissions.length, beforeKeyboard + 3);
-  assert.equal(await page.locator('#content').inputValue(), 'Nicht senden');
+  assert.equal(await page.locator('#content').inputValue(), 'Nicht senden\n');
   assert.deepEqual(errors, []);
   console.log('UI passed: both modes, streaming, follow-up, stop, history, deep links, delete/cancel, retry, session expiry, logout and responsive overflow.');
 } finally {

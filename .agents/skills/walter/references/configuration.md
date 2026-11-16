@@ -30,7 +30,7 @@
 | `WALTER_LISTEN` | `127.0.0.1:8080`; select a private interface for a separate Caddy guest |
 | `WALTER_DATA_DIR` | `data`; use an absolute persistent volume path in production |
 | `WALTER_GENERATION_TIMEOUT` | `2h`, includes cold model loading and streaming |
-| `WALTER_SESSION_TTL` | `12h`, also bounded by the ID token expiry |
+| `WALTER_SESSION_TTL` | `12h`, independently enforced after initial ID-token verification |
 | `WALTER_MAX_HISTORY_BYTES` | `48000`, rejects additional messages rather than silently truncating |
 | `WALTER_MAX_OUTPUT_TOKENS` | `4096`; fallback when a profile omits `max_tokens` |
 
@@ -227,9 +227,10 @@ returns directly to the start page when that session is still valid.
 Session cookies are opaque 256-bit random values; only hashes are used as
 server-side lookup keys. Cookies have `__Host-` names, Secure, HttpOnly, path `/`
 and SameSite=Lax. Mutation requests require exact configured Origin plus a
-session-bound CSRF token, including logout. Sessions are bounded by configured
-TTL and ID-token expiry; role revocations take effect on reauthentication or
-session expiry. Logout removes the local session; it does not terminate the
+session-bound CSRF token, including logout. Sessions are bounded by the configured TTL after the ID token is verified at
+login. The ID token's shorter lifetime does not truncate a local session.
+Role revocations take effect on reauthentication or local session expiry.
+Sessions remain in memory: restarting the Walter process invalidates them. Logout removes the local session; it does not terminate the
 provider's SSO session.
 
 Identity storage keys hash a JSON tuple of issuer and subject. Conversation paths
