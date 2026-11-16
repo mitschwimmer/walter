@@ -224,15 +224,18 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 		return
 	}
 	if input.Thinking != "" && input.Thinking != "quick" && input.Thinking != "thoughtful" {
+		requestRejected(r, "invalid_thinking")
 		problem(w, 400, "Denkmodus ungültig.")
 		return
 	}
 	input.Content = strings.TrimSpace(input.Content)
 	if input.Content == "" || len(input.Content) > 16000 {
+		requestRejected(r, "invalid_content")
 		problem(w, 400, "Nachricht leer oder zu lang (maximal 16000 Bytes).")
 		return
 	}
 	if !a.reserve(u) {
+		requestRejected(r, "generation_active")
 		problem(w, 409, "Eine Antwort läuft bereits.")
 		return
 	}
@@ -247,10 +250,12 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 		n += len(m.Content)
 	}
 	if n > a.cfg.MaxHistory {
+		requestRejected(r, "history_too_large")
 		problem(w, 413, "Chat zu lang. Bitte einen neuen Chat starten.")
 		return
 	}
 	if c.Model != a.cfg.Model {
+		requestRejected(r, "model_changed")
 		problem(w, 409, "Das Modell dieses Chats ist nicht mehr konfiguriert.")
 		return
 	}
@@ -258,6 +263,7 @@ func (a *App) message(w http.ResponseWriter, r *http.Request, u string) {
 		c.Thinking = input.Thinking
 	}
 	if !a.promptFits(r.Context(), c, input.Content) {
+		requestRejected(r, "context_full")
 		problem(w, 413, "Kontext voll. Bitte eine neue Frage starten oder die Frage kürzen.")
 		return
 	}
