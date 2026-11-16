@@ -28,6 +28,9 @@ body > header.site-header { align-items: center; }
 .site-header nav :is(a,button):hover { color: var(--primary); }
 .site-header nav a[aria-current="page"] { font-weight: 600; text-decoration-thickness: 2px; }
 body > main { flex: 1; padding-block: 2.5rem 4rem; min-width: 0; }
+/* The shared documentation shell gives direct sections a top rule; a chat
+   application owns its view separators instead. */
+main > :is(#login, #chat, #history) { margin: 0; padding: 0; border-top: 0; }
 main:focus { outline: none; }
 /* Welcome identity stays large; do not invent a replacement for the original
    layered geometry/rainbow/text-clip effect. */
