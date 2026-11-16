@@ -43,7 +43,10 @@ func TestSessionRejectionReasons(t *testing.T) {
 func TestAuthFailureDiagnosticCorrelationAndRedaction(t *testing.T) {
     a := testApp(t)
     var output bytes.Buffer
-    handler := recordRequests(a.routes(), slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelError}))
+    previous := slog.Default()
+    slog.SetDefault(slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelError})))
+    t.Cleanup(func() { slog.SetDefault(previous) })
+    handler := a.routes()
     r := httptest.NewRequest("POST", "/api/conversations/SECRET/messages?token=SECRET", strings.NewReader("{}"))
     r.Header.Set("Origin", a.cfg.PublicURL)
     r.Header.Set("X-CSRF-Token", "SECRET")
