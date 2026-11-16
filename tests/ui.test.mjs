@@ -110,6 +110,29 @@ async function waitForFixture(ready) {
   }
 }
 async function noOverflow() { assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'page overflows viewport'); }
+async function assertLoginLayout(proseSize, minimumGap) {
+  const layout = await page.evaluate(() => {
+    const headline = document.querySelector('.headline').getBoundingClientRect();
+    const panel = document.querySelector('#login');
+    const panelBox = panel.getBoundingClientRect();
+    const paragraph = getComputedStyle(panel.querySelector('p'));
+    return {
+      headlineCenter: headline.left + headline.width / 2,
+      panelCenter: panelBox.left + panelBox.width / 2,
+      viewportCenter: innerWidth / 2,
+      gap: panelBox.top - headline.bottom,
+      paragraphSize: paragraph.fontSize,
+      paragraphAlign: paragraph.textAlign,
+      borderTop: getComputedStyle(panel).borderTopWidth,
+    };
+  });
+  assert.ok(Math.abs(layout.headlineCenter - layout.viewportCenter) < 2, 'login headline centered');
+  assert.ok(Math.abs(layout.panelCenter - layout.viewportCenter) < 2, 'login content centered');
+  assert.ok(layout.gap >= minimumGap, 'login content needs breathing room beneath the headline');
+  assert.equal(layout.paragraphSize, proseSize, 'login text uses readable prose size');
+  assert.equal(layout.paragraphAlign, 'start');
+  assert.equal(layout.borderTop, '0px', 'login adds no redundant separator');
+}
 try {
   releaseSession = null;
   await page.goto(origin);
@@ -388,7 +411,7 @@ try {
       assert.ok(reading.width >= width - 60, 'phone replies use the available reading width');
       assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).fontSize), '16px');
     }
-    assert.equal(reading.fontSize, width <= 768 ? '16px' : '18px',
+    assert.equal(reading.fontSize, width <= 768 ? '17px' : '19px',
       'reply typography must follow the 48rem responsive breakpoint');
     await screenshot(`conversation-${width}`);
   }
@@ -448,6 +471,13 @@ try {
   await state('login');
   assert.equal(await page.locator('#account-menu').isVisible(), false);
   assert.equal(await page.locator('.message').count(), 0);
+  await page.setViewportSize({ width: 320, height: 844 });
+  await noOverflow();
+  await assertLoginLayout('17px', 36);
+  await screenshot('login-small-mobile');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noOverflow();
+  await assertLoginLayout('17px', 36);
   await screenshot('login-mobile');
   signedIn = true;
   await page.goto(origin);
@@ -457,6 +487,8 @@ try {
   await state('login');
   assert.equal(signedIn, false);
   await page.setViewportSize({ width: 1071, height: 1579 });
+  await noOverflow();
+  await assertLoginLayout('19px', 64);
   await screenshot('login-desktop');
   footerLinks = false;
   await page.reload();

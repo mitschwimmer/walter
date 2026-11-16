@@ -31,6 +31,8 @@ body > main { flex: 1; padding-block: 2.5rem 4rem; min-width: 0; }
 /* The shared documentation shell gives direct sections a top rule; a chat
    application owns its view separators instead. */
 main > :is(#login, #chat, #history) { margin: 0; padding: 0; border-top: 0; }
+/* Center the login panel as well as the headline, with room between them. */
+main > #login { margin-inline: auto; padding-block-start: 1.5rem; }
 main:focus { outline: none; }
 /* Welcome identity stays large; do not invent a replacement for the original
    layered geometry/rainbow/text-clip effect. */
@@ -50,9 +52,9 @@ body[data-view="history"] .headline { display: none; }
   .headline { background: none; color: CanvasText; -webkit-text-fill-color: CanvasText; }
 }
 #login, #chat, #history { width: 100%; }
-.login-panel { max-width: 68ch; margin-inline: auto; border-top: 3px solid var(--foreground); padding-block: 1.5rem; }
+.login-panel { max-width: 68ch; }
 .login-panel h2 { font-size: 1.5rem; }
-.login-panel p { font: 1.125rem/1.55 serif; max-width: 44ch; margin-block: .75rem 1.25rem; }
+.login-panel p { font: 1.1875rem/1.55 serif; max-width: 44ch; margin-block: .75rem 1.25rem; }
 .login-panel .button { display: inline-flex; padding: .6rem 1.25rem; text-decoration: none; background: var(--primary); color: var(--primary-foreground); }
 #chat { max-width: 100%; }
 .conversation-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
@@ -68,7 +70,7 @@ body[data-view="history"] .headline { display: none; }
   padding: .85rem 1.15rem; background: var(--archaic-tint); border-inline-start: 3px solid var(--archaic-rule);
   overflow-wrap: anywhere; white-space: pre-wrap; }
 .message.assistant { display: flow-root; padding-bottom: 2rem; border-bottom: 1px solid var(--archaic-rule); }
-.message.assistant .message-content { max-width: 68ch; margin-inline: auto; font: 1.125rem/1.6 serif; overflow-wrap: anywhere; }
+.message.assistant .message-content { max-width: 68ch; margin-inline: auto; font: 1.1875rem/1.6 serif; overflow-wrap: anywhere; }
 .message-content > :first-child { margin-top: 0; }
 .message-content > :last-child { margin-bottom: 0; }
 .message-content p { margin: 0 0 1.1em; }
@@ -215,7 +217,8 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
   body > main { padding-block: 2rem 3rem; }
   .headline { font-size: clamp(1.9rem, 8.5vw, 4.2rem); margin-bottom: 2.25rem; }
   .message.user .message-content { max-width: 92%; }
-  .message.assistant .message-content { font-size: 1rem; }
+  .message.assistant .message-content { font-size: 1.0625rem; }
+  .login-panel p { font-size: 1.0625rem; }
   .conversation-list li a { display: block; }
   .conversation-list time { display: block; margin-top: .25rem; }
 }
