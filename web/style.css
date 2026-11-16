@@ -1,15 +1,15 @@
 /* Walter's application-specific layout. Oat and the shared Archaic Heritage
    theme are loaded first. Only the headline retains Walter's color effect. */
 :root {
-  --brand-blue: light-dark(#285b78, #83a598);
-  --brand-orange: light-dark(#c65c26, #fe8019);
-  --brand-gold: light-dark(#b58a19, #fabd2f);
-  --brand-teal: light-dark(#367b6f, #8ec07c);
-  --brand-pink: light-dark(#ae607e, #d3869b);
-  --brand-royal: light-dark(#416caa, #83a598);
-  --brand-amber: light-dark(#a97218, #fabd2f);
-  --brand-green: light-dark(#4e8056, #b8bb26);
-  --brand-purple: light-dark(#86619c, #d3869b);
+  --brand-blue: light-dark(#0968fb, #83a598);
+  --brand-orange: light-dark(#ff4c16, #fe8019);
+  --brand-gold: light-dark(#ffbe29, #fabd2f);
+  --brand-teal: light-dark(#0a858a, #8ec07c);
+  --brand-pink: light-dark(#f65673, #d3869b);
+  --brand-royal: light-dark(#1663ea, #83a598);
+  --brand-amber: light-dark(#f9a914, #fabd2f);
+  --brand-green: light-dark(#248e69, #b8bb26);
+  --brand-purple: light-dark(#7a45dd, #d3869b);
   --geometry: url('/headline-overlay.svg');
   --rainbow: linear-gradient(90deg, var(--brand-blue) 0%, var(--brand-orange) 16%, var(--brand-gold) 29%, var(--brand-teal) 43%, var(--brand-pink) 57%, var(--brand-royal) 69%, var(--brand-amber) 79%, var(--brand-green) 90%, var(--brand-purple) 100%);
 }
