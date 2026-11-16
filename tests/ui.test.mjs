@@ -23,7 +23,7 @@ const server = createServer(async (req, res) => {
     if (req.url === '/api/site') return json(res, 200, { revision: '10d95b1', ...(footerLinks ? { imprint_url: 'https://example.com/impressum', privacy_url: 'https://example.com/datenschutz' } : {}) });
     if (!req.url.startsWith('/api/') && !req.url.startsWith('/auth/')) {
       const filename = req.url === '/' ? 'index.html' : req.url.slice(1);
-      if (!['index.html', 'app.js', 'style.css', 'sse.js', 'walter.svg', 'headline-overlay.svg'].includes(filename)) return json(res, 404, {});
+      if (!['index.html', 'app.js', 'style.css', 'oat.css', 'archaic-theme.css', 'sse.js', 'walter.svg', 'headline-overlay.svg'].includes(filename)) return json(res, 404, {});
       res.setHeader('Content-Type', filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.svg') ? 'image/svg+xml' : 'text/html');
       return res.end(await readFile(join(root, filename)));
     }
@@ -125,21 +125,15 @@ try {
   await page.locator('#content').fill('Was ist Marmelade?');
   assert.equal(await page.locator('#context-info').isVisible(), false);
   await screenshot('start-desktop');
-  // Input focus uses brightness; other keyboard controls retain their outline.
+  // Focus is visible and the welcome heading retains its layered color effect.
   await page.locator('#content').fill('');
   await page.locator('#quick').focus();
-  await page.waitForTimeout(220);
-  const idleBackground = await page.locator('#content').evaluate(el => getComputedStyle(el).backgroundColor);
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el, '::placeholder').opacity), '1');
   await page.locator('#content').focus();
-  await page.waitForTimeout(220);
-  const focusBackground = await page.locator('#content').evaluate(el => getComputedStyle(el).backgroundColor);
-  assert.notEqual(focusBackground, idleBackground);
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'none');
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el, '::placeholder').opacity), '0');
+  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
   assert.equal(await page.locator('#content').getAttribute('placeholder'), 'Was möchtest du wissen?');
+  assert.equal(await page.locator('.headline').evaluate(el => getComputedStyle(el).textAlign), 'right');
+  assert.ok((await page.locator('.headline').evaluate(el => getComputedStyle(el).backgroundImage)).includes('headline-overlay.svg'));
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).transitionDuration), '0s');
   await page.emulateMedia({ forcedColors: 'active' });
   assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
@@ -218,7 +212,7 @@ try {
       const style = selector => getComputedStyle(document.querySelector(selector));
       return {
         scheme: style(':root').colorScheme,
-        background: style(':root').backgroundColor,
+        background: style('body').backgroundColor,
         foreground: style('.assistant').color,
         panel: style('.assistant').backgroundColor,
         code: style('.assistant pre').backgroundColor,
@@ -228,17 +222,17 @@ try {
     });
     assert.equal(colors.scheme, scheme);
     if (scheme === 'dark') {
-      assert.equal(colors.background, 'rgb(29, 32, 33)');
-      assert.equal(colors.foreground, 'rgb(235, 219, 178)');
-      assert.equal(colors.panel, 'rgb(40, 40, 40)');
-      assert.equal(colors.code, colors.background);
+      assert.equal(colors.background, 'rgb(23, 29, 26)');
+      assert.equal(colors.foreground, 'rgb(236, 237, 228)');
+      assert.equal(colors.code, 'rgb(35, 43, 39)');
     } else {
-      assert.equal(colors.background, 'rgb(250, 250, 250)');
-      assert.equal(colors.foreground, 'rgb(55, 55, 55)');
-      assert.equal(colors.panel, 'rgb(255, 255, 255)');
+      assert.equal(colors.background, 'rgb(247, 245, 238)');
+      assert.equal(colors.foreground, 'rgb(36, 41, 34)');
+      assert.equal(colors.code, 'rgb(237, 240, 235)');
     }
-    assert.equal(colors.dialog, colors.panel);
-    assert.equal(colors.error, colors.panel);
+    assert.equal(colors.panel, 'rgba(0, 0, 0, 0)');
+    assert.equal(colors.dialog, colors.background);
+    assert.equal(colors.error, colors.background);
     await screenshot(`conversation-${scheme}`);
   }
   await page.emulateMedia({ colorScheme });
@@ -250,7 +244,7 @@ try {
   assert.equal(await page.locator('.message').count(), 4);
   assert.equal(creations.length, 1);
   assert.equal([...conversations.values()][0].thinking, 'quick');
-  assert.equal(await page.locator('#mode-label').textContent(), 'schnell');
+  assert.equal(await page.locator('.conversation-heading').isVisible(), true);
   assert.equal(await page.locator('#context-info').textContent(), 'Kontext: 25% · 4.096 / 16.384 Tokens');
   contextKnown = false;
   await page.reload();
@@ -308,7 +302,7 @@ try {
   await idle();
   assert.equal(submissions.length, 3);
   assert.equal([...conversations.values()][0].thinking, 'thoughtful');
-  assert.equal(await page.locator('#mode-label').textContent(), 'bedacht');
+  assert.equal(await page.locator('.conversation-heading').isVisible(), true);
   assert.equal(await page.locator('.assistant').last().locator('small').textContent(), 'Abgebrochen');
   await page.locator('#delete').click();
   await page.getByRole('button', { name: 'Behalten', exact: true }).click();
@@ -343,7 +337,7 @@ try {
         fontSize: getComputedStyle(el).fontSize,
       }));
       assert.ok(reading.width >= width - 60, 'phone replies use the available reading width');
-      assert.equal(reading.fontSize, '15px');
+      assert.equal(reading.fontSize, '16px');
       assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).fontSize), '16px');
     } else {
       assert.equal(await page.locator('.assistant .message-content').first().evaluate(el => getComputedStyle(el).fontSize), '18px');
@@ -422,27 +416,18 @@ try {
   assert.equal(await page.locator('#imprint').isVisible(), false);
   assert.equal(await page.locator('#privacy').isVisible(), false);
   await screenshot('build-only-footer');
-  // Enter shares the button submission path and preserves multiline/IME input.
+  // Enter inserts a line break. Only a named mode button may submit.
   signedIn = true;
   await page.goto(origin);
   await state('start');
   await inputFocused();
   const beforeKeyboard = submissions.length;
-  await page.locator('#content').press('Enter');
-  assert.equal(await page.locator('#content').inputValue(), '');
-  await page.locator('#content').fill('   ');
-  await page.locator('#content').press('Enter');
-  assert.equal(submissions.length, beforeKeyboard);
   await page.locator('#content').fill('Erste Zeile');
-  await page.locator('#content').press('Shift+Enter');
-  await page.locator('#content').press('End');
+  await page.locator('#content').press('Enter');
   await page.keyboard.insertText('Zweite Zeile');
   assert.equal(await page.locator('#content').inputValue(), 'Erste Zeile\nZweite Zeile');
-  for (const event of [{ isComposing: true }, { keyCode: 229 }, { repeat: true }]) {
-    await page.locator('#content').dispatchEvent('keydown', { key: 'Enter', ...event });
-  }
   assert.equal(submissions.length, beforeKeyboard);
-  await page.locator('#content').press('Enter');
+  await page.locator('#quick').click();
   await idle();
   assert.equal(submissions.length, beforeKeyboard + 1);
   assert.equal(submissions.at(-1), 'Erste Zeile\nZweite Zeile');
@@ -450,12 +435,14 @@ try {
   await page.locator('#content').fill('Bitte bedacht antworten');
   await page.locator('#thoughtful').click();
   await idle();
-  await page.locator('#content').fill('Weitere Frage per Enter');
+  assert.equal([...conversations.values()].at(-1).thinking, 'thoughtful');
+  await page.locator('#content').fill('Weitere Frage');
   await page.locator('#content').press('Enter');
+  assert.equal(submissions.length, beforeKeyboard + 2);
+  await page.locator('#quick').click();
   await idle();
   assert.equal(submissions.length, beforeKeyboard + 3);
-  assert.equal([...conversations.values()].at(-1).thinking, 'thoughtful');
-  // A full current mode cannot be bypassed using the keyboard.
+  assert.equal([...conversations.values()].at(-1).thinking, 'quick');
   contextThoughtful = 16384;
   await page.reload();
   await state('conversation');
@@ -463,7 +450,7 @@ try {
   await page.locator('#content').fill('Nicht senden');
   await page.locator('#content').press('Enter');
   assert.equal(submissions.length, beforeKeyboard + 3);
-  assert.equal(await page.locator('#content').inputValue(), 'Nicht senden');
+  assert.equal(await page.locator('#content').inputValue(), 'Nicht senden\n');
   assert.deepEqual(errors, []);
   console.log('UI passed: both modes, streaming, follow-up, stop, history, deep links, delete/cancel, retry, session expiry, logout and responsive overflow.');
 } finally {
