@@ -2,7 +2,7 @@ name: Test and publish Walter
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -45,6 +45,8 @@ jobs:
           retention-days: 7
 
   image:
+    # Publish only after both browser themes pass their integration tests.
+    needs: browser
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -85,6 +87,9 @@ jobs:
             echo "$image:sha-$GITHUB_SHA"
             if [[ "$GITHUB_REF" == refs/heads/main ]]; then
               echo "$image:latest"
+            elif [[ "$GITHUB_REF" == refs/heads/develop ]]; then
+              # Moving discovery tag: GitOps pins its resolved immutable digest.
+              echo "$image:develop"
             elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
               echo "$image:$GITHUB_REF_NAME"
             fi
