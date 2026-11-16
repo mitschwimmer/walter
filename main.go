@@ -51,11 +51,16 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func problem(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
+func requestRejected(r *http.Request, reason string) {
+	requestLogger(r.Context()).DebugContext(r.Context(), "request rejected", "rejection_reason", reason)
+}
+
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 65536)
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
 	if d.Decode(v) != nil || d.Decode(new(any)) != io.EOF {
+		requestRejected(r, "invalid_json")
 		problem(w, 400, "Ungültige Anfrage.")
 		return false
 	}
@@ -71,8 +76,9 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /auth/callback", a.auth.callback)
 	mux.HandleFunc("POST /auth/logout", a.auth.logout)
 	mux.HandleFunc("GET /api/session", func(w http.ResponseWriter, r *http.Request) {
-		s := a.auth.session(r)
+		s, reason := a.auth.sessionWithReason(r)
 		if s == nil {
+			authRejected(r, reason)
 			problem(w, 401, "Bitte anmelden.")
 			return
 		}
@@ -90,7 +96,13 @@ func (a *App) routes() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+		_, pattern := mux.Handler(r)
+		if pattern == "" {
+			pattern = "unmatched"
+		}
+		requestLogger(r.Context()).DebugContext(r.Context(), "request routed", "route", pattern)
 		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Origin") != a.cfg.PublicURL {
+			requestRejected(r, "origin_invalid")
 			problem(w, 403, "Ungültiger Ursprung.")
 			return
 		}
@@ -99,12 +111,14 @@ func (a *App) routes() http.Handler {
 }
 func (a *App) api(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s := a.auth.session(r)
+		s, reason := a.auth.sessionWithReason(r)
 		if s == nil {
+			authRejected(r, reason)
 			problem(w, 401, "Bitte erneut anmelden.")
 			return
 		}
 		if r.Method != "GET" && r.Header.Get("X-CSRF-Token") != s.CSRF {
+			authRejected(r, "csrf_invalid")
 			problem(w, 403, "Ungültige Sitzung.")
 			return
 		}
@@ -130,6 +144,7 @@ func (a *App) create(w http.ResponseWriter, r *http.Request, u string) {
 		return
 	}
 	if v.Thinking != "quick" && v.Thinking != "thoughtful" {
+		requestRejected(r, "invalid_thinking")
 		problem(w, 400, "Denkmodus ungültig.")
 		return
 	}
@@ -159,6 +174,7 @@ func (a *App) get(w http.ResponseWriter, r *http.Request, u string) {
 }
 func (a *App) remove(w http.ResponseWriter, r *http.Request, u string) {
 	if !a.reserve(u) {
+		requestRejected(r, "generation_active")
 		problem(w, 409, "Bitte zuerst die laufende Antwort stoppen.")
 		return
 	}
@@ -171,6 +187,7 @@ func (a *App) remove(w http.ResponseWriter, r *http.Request, u string) {
 }
 func (a *App) storeError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, errMissing) {
+		requestRejected(r, "conversation_missing")
 		problem(w, 404, "Chat nicht gefunden.")
 	} else {
 		logFailure(r.Context(), "access_conversation", err)

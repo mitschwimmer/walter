@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -65,6 +66,11 @@ func (a *Auth) prune() {
 func cookie(w http.ResponseWriter, name, value string, age int) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: age})
 }
+// Authentication diagnostics use fixed reasons, never cookie or token values.
+func authRejected(r *http.Request, reason string) {
+	requestLogger(r.Context()).DebugContext(r.Context(), "authentication rejected", "auth_reason", reason)
+}
+
 func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
 	if a.session(r) != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -75,6 +81,7 @@ func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
 	a.prune()
 	if len(a.flows) >= 256 {
 		a.mu.Unlock()
+		authRejected(r, "login_flows_full")
 		problem(w, 503, "Anmeldung vorübergehend ausgelastet.")
 		return
 	}
@@ -87,6 +94,7 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	c, err := r.Cookie("__Host-walter-login")
 	if err != nil || len(state) != 43 || subtle.ConstantTimeCompare([]byte(state), []byte(c.Value)) != 1 {
+		authRejected(r, "login_state_invalid")
 		problem(w, 400, "Anmeldung ungültig oder abgelaufen.")
 		return
 	}
@@ -96,6 +104,11 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 	a.mu.Unlock()
 	cookie(w, "__Host-walter-login", "", -1)
 	if !ok || !time.Now().Before(flow.Expires) {
+		if !ok {
+			authRejected(r, "login_flow_missing")
+		} else {
+			authRejected(r, "login_flow_expired")
+		}
 		problem(w, 400, "Anmeldung abgelaufen.")
 		return
 	}
@@ -103,11 +116,13 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 	t, err := a.oauth.Exchange(ctx, r.URL.Query().Get("code"), oauth2.VerifierOption(flow.Verifier))
 	if err != nil {
 		logFailure(ctx, "exchange_oidc_code", err)
+		authRejected(r, "token_exchange_failed")
 		problem(w, 401, "Anmeldung fehlgeschlagen.")
 		return
 	}
 	raw, ok := t.Extra("id_token").(string)
 	if !ok {
+		authRejected(r, "identity_missing")
 		problem(w, 401, "Identität fehlt.")
 		return
 	}
@@ -116,6 +131,7 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logFailure(ctx, "verify_oidc_identity", err)
 		}
+		authRejected(r, "identity_invalid")
 		problem(w, 401, "Identität ungültig.")
 		return
 	}
@@ -123,22 +139,24 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 		Groups []string `json:"groups"`
 	}
 	if id.Claims(&claims) != nil {
+		authRejected(r, "groups_invalid")
 		problem(w, 403, "Kein Zugriff.")
 		return
 	}
 	if !a.allowedGroup(claims.Groups) {
+		authRejected(r, "groups_denied")
 		problem(w, 403, "Kein Zugriff.")
 		return
 	}
+	// The ID token is verified at login; its expiry is not the lifetime of
+	// Walter's independently managed application session.
 	expires := time.Now().Add(a.cfg.SessionTTL)
-	if id.Expiry.Before(expires) {
-		expires = id.Expiry
-	}
 	value := token()
 	a.mu.Lock()
 	a.prune()
 	if len(a.sessions) >= 128 {
 		a.mu.Unlock()
+		authRejected(r, "sessions_full")
 		problem(w, 503, "Zu viele Sitzungen.")
 		return
 	}
@@ -151,26 +169,42 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 func (a *Auth) session(r *http.Request) *Session {
+	s, _ := a.sessionWithReason(r)
+	return s
+}
+
+// Distinguish an expired session from one lost across a process restart.
+// Only fixed reasons are returned; raw cookie values are never logged.
+func (a *Auth) sessionWithReason(r *http.Request) (*Session, string) {
 	c, err := r.Cookie("__Host-walter-session")
+	if errors.Is(err, http.ErrNoCookie) {
+		return nil, "cookie_missing"
+	}
 	if err != nil || len(c.Value) != 43 {
-		return nil
+		return nil, "cookie_invalid"
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.prune()
 	s, ok := a.sessions[hashToken(c.Value)]
-	if !ok {
-		return nil
+	if ok && !time.Now().Before(s.Expires) {
+		a.prune()
+		return nil, "session_expired"
 	}
-	return &s
+	a.prune()
+	if !ok {
+		return nil, "session_unknown"
+	}
+	return &s, ""
 }
 func (a *Auth) logout(w http.ResponseWriter, r *http.Request) {
-	s := a.session(r)
+	s, reason := a.sessionWithReason(r)
 	if s == nil {
+		authRejected(r, reason)
 		problem(w, 401, "Bitte anmelden.")
 		return
 	}
 	if r.Header.Get("X-CSRF-Token") != s.CSRF {
+		authRejected(r, "csrf_invalid")
 		problem(w, 403, "Ungültige Sitzung.")
 		return
 	}

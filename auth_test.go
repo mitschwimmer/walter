@@ -119,6 +119,11 @@ func TestOIDCFlow(t *testing.T) {
 				if s == nil || s.User != userKey(issuer, "alice") {
 					t.Fatal(s)
 				}
+				// The ID token lasts one hour, but the application session
+				// remains valid for the configured twelve-hour TTL.
+				if time.Until(s.Expires) < 11*time.Hour {
+					t.Fatal("application session shortened to ID token expiry", s.Expires)
+				}
 				r.Header.Set("X-CSRF-Token", s.CSRF)
 				w = httptest.NewRecorder()
 				a.logout(w, r)
