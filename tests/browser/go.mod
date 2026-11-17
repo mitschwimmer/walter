@@ -2,7 +2,10 @@ module github.com/mitschwimmer/walter/tests/browser
 
 go 1.25.0
 
-require github.com/go-rod/rod v0.116.2
+require (
+	github.com/go-rod/rod v0.116.2
+	github.com/mitschwimmer/go-skill v0.0.0-20261117194738-86a06b7d671c
+)
 
 require (
 	github.com/ysmood/fetchup v0.2.3 // indirect
