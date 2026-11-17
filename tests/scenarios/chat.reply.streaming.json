@@ -1,0 +1,16 @@
+{
+  "id": "chat.reply.streaming",
+  "description": "Waiting for the first streamed assistant response",
+  "fixture": "streaming-reply",
+  "checkpoints": [
+    "waiting"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}
