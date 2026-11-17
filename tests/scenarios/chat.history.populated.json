@@ -1,0 +1,16 @@
+{
+  "id": "chat.history.populated",
+  "description": "History view containing two synthetic conversations",
+  "fixture": "history-with-conversations",
+  "checkpoints": [
+    "ready"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}
