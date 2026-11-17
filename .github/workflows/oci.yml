@@ -17,35 +17,30 @@ concurrency:
 jobs:
   browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    strategy:
-      matrix:
-        color-scheme: [light, dark]
+    timeout-minutes: 12
+    env:
+      WALTER_BROWSER_NO_SANDBOX: '1' # Runner only; local Chromium stays sandboxed.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install browser test tools
-        run: |
-          npm install --prefix "$RUNNER_TEMP/walter-ui-tools" --no-audit --no-fund playwright@1.62.1
-          "$RUNNER_TEMP/walter-ui-tools/node_modules/.bin/playwright" install --with-deps chromium
-      - name: Check views and interactions
-        env:
-          WALTER_PLAYWRIGHT_MODULE: ${{ runner.temp }}/walter-ui-tools/node_modules/playwright
-          WALTER_SCREENSHOT_DIR: ${{ runner.temp }}/walter-screenshots
-          WALTER_COLOR_SCHEME: ${{ matrix.color-scheme }}
-        run: node tests/ui.test.mjs
-      - name: Save desktop and mobile screenshots
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          name: walter-ui-screenshots-${{ matrix.color-scheme }}
-          path: ${{ runner.temp }}/walter-screenshots
-          if-no-files-found: ignore
-          retention-days: 7
+          go-version: '1.25.3'
+          cache: true
+          cache-dependency-path: tests/browser/go.sum
+      - name: Locate installed Chrome
+        run: |
+          browser="$(command -v google-chrome || command -v chromium || true)"
+          test -n "$browser"
+          echo "WALTER_BROWSER_EXECUTABLE=$browser" >> "$GITHUB_ENV"
+      - name: Test frontend behavior and browser SSE parser in Chromium
+        run: |
+          go -C tests/browser mod verify
+          go -C tests/browser test ./... -v -timeout 6m
 
   image:
-    # Publish only after both browser themes pass their integration tests.
+    # Publish only after the Go/Rod browser and SSE regressions pass.
     needs: browser
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -67,7 +62,6 @@ jobs:
           cache: true
       - name: Test and compile
         run: |
-          node tests/sse.test.mjs
           go mod verify
           go test ./...
           go vet ./...
