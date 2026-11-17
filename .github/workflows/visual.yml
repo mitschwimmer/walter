@@ -43,6 +43,18 @@ jobs:
           WALTER_PLAYWRIGHT_MODULE: ${{ runner.temp }}/walter-ui-tools/node_modules/playwright
         run: node tests/scenarios.mjs --out "$RUNNER_TEMP/walter-visual/candidate" --revision "$GITHUB_SHA"
 
+      - name: Verify that identical captures compare unchanged
+        run: |
+          node tests/compare-scenarios.mjs \
+            --base "$RUNNER_TEMP/walter-visual/candidate" \
+            --candidate "$RUNNER_TEMP/walter-visual/candidate" \
+            --base-defs "$GITHUB_WORKSPACE/tests/scenarios" \
+            --candidate-defs "$GITHUB_WORKSPACE/tests/scenarios" \
+            --out "$RUNNER_TEMP/walter-self-check"
+          node -e "const a=require(process.argv[1]); const b=require(process.argv[2]); if(a.counts.unchanged !== b.images.length || Object.entries(a.counts).some(([k,v]) => k !== 'unchanged' && v)) process.exit(1)" \
+            "$RUNNER_TEMP/walter-self-check/summary.json" \
+            "$RUNNER_TEMP/walter-visual/candidate/manifest.json"
+
       - name: Capture comparable main scenarios
         if: github.event_name == 'pull_request'
         env:
