@@ -1,0 +1,16 @@
+{
+  "id": "chat.start.empty",
+  "description": "Authenticated start view with an empty composer",
+  "fixture": "empty-chat",
+  "checkpoints": [
+    "ready"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}
