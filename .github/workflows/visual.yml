@@ -2,7 +2,6 @@ name: Visual scenarios
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -24,12 +23,12 @@ jobs:
         with:
           persist-credentials: false
 
-      # Check out the exact main commit. The candidate test harness renders both revisions.
+      # For PRs to main, pin its event base SHA. For other targets, snapshot main at checkout.
       - name: Check out PR baseline
         if: github.event_name == 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.ref == 'main' && github.event.pull_request.base.sha || 'main' }}
           path: .visual-base
           persist-credentials: false
 
@@ -59,12 +58,11 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           WALTER_PLAYWRIGHT_MODULE: ${{ runner.temp }}/walter-ui-tools/node_modules/playwright
-          MAIN_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           node tests/scenarios.mjs \
             --web-root "$GITHUB_WORKSPACE/.visual-base/web" \
             --baseline-contracts "$GITHUB_WORKSPACE/.visual-base/tests/scenarios" \
-            --revision "$MAIN_SHA" \
+            --revision "$(git -C "$GITHUB_WORKSPACE/.visual-base" rev-parse HEAD)" \
             --out "$RUNNER_TEMP/walter-visual/main"
 
       - name: Produce changed-only PR review
