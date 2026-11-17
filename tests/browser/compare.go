@@ -164,7 +164,7 @@ func compare(args []string) error {
 		if err != nil {
 			return err
 		}
-		_, _, err = png.Decode(bytes.NewReader(currentBytes))
+		_, err = png.Decode(bytes.NewReader(currentBytes))
 		if err != nil {
 			return fmt.Errorf("invalid screenshot %s: %w", entry.File, err)
 		}
