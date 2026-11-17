@@ -120,9 +120,15 @@ async function main() {
     for (const definition of selected) {
       const previous = await readFile(join(baselineDirectory, definition.id + '.json'))
         .catch(error => error.code === 'ENOENT' ? null : Promise.reject(error));
-      if (previous && previous.equals(definition.raw)) matching.push(definition);
+      if (previous && JSON.stringify(JSON.parse(previous)) === JSON.stringify(JSON.parse(definition.raw))) {
+        matching.push(definition);
+      }
     }
-    selected = matching;
+    const priorFixture = await readFile(join(baselineDirectory, '..', 'scenario-fixture.mjs'))
+      .catch(error => error.code === 'ENOENT' ? null : Promise.reject(error));
+    const currentFixture = await readFile(join(root, 'tests/scenario-fixture.mjs'));
+    // Comparing states whose fixture implementation changed is not like-for-like.
+    selected = priorFixture && priorFixture.equals(currentFixture) ? matching : [];
   }
   const revision = options.revision || execFileSync('git', ['rev-parse', 'HEAD'],
     { cwd: root, encoding: 'utf8' }).trim();
