@@ -19,11 +19,11 @@ From the repository root in the development shell:
 
 ```sh
 go -C tests/browser test ./...
-go -C tests/browser run . capture --scenario chat.reply.streaming --out ../walter-ui-scenarios
-go -C tests/browser run . capture --out ../walter-ui-scenarios
+go -C tests/browser run . capture --scenario chat.reply.streaming --out ../../../walter-ui-scenarios
+go -C tests/browser run . capture --out ../../../walter-ui-scenarios
 ```
 
-The browser must already be installed. Set `WALTER_BROWSER_EXECUTABLE` to a NixOS-provided Chromium binary, or let Rod locate a browser on `PATH`. The tool does not download Chrome automatically. Capture names remain `<scenario>--<checkpoint>--<viewport>--<theme>.png`, using desktop (1071x1579), mobile (390x844), light and dark themes. `manifest.json` records the browser version, source commit and fixture hash. The test runner uses real DOM actions and CSS media emulation, fixed locale/timezone, synthetic dates and HTTP API responses, and no production authentication bypass. No screenshot goldens are committed.
+The browser must already be installed. Set `WALTER_BROWSER_EXECUTABLE` to a NixOS-provided Chromium binary, or let Rod locate a browser on `PATH`. The tool does not download Chrome automatically and keeps the local Chrome sandbox enabled. Only set `WALTER_BROWSER_NO_SANDBOX=1` in a controlled CI environment that requires it. Capture names remain `<scenario>--<checkpoint>--<viewport>--<theme>.png`, using desktop (1071x1579), mobile (390x844), light and dark themes. `manifest.json` records the browser version, source commit and fixture hash. The test runner uses real DOM actions and CSS media emulation, fixed locale/timezone, synthetic dates and HTTP API responses, and no production authentication bypass. No screenshot goldens are committed.
 
 The dedicated [Rod visual workflow](../../../../.github/workflows/visual.yml) captures the candidate and matching contracts from `main` in the **same installed browser** and writes a changed-only `report/index.html` and `summary.json` into the `walter-rod-visual-scenarios` Actions artifact. It compares decoded PNG pixels, generating a separate difference PNG for compatible dimensions. Added, removed and changed-contract scenarios do not masquerade as like-for-like UI changes. A scenario has to reference visible browser assertions before capture.
 
