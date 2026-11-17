@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -200,7 +201,7 @@ func newBrowser() (*rod.Browser, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	launch := launcher.New().Bin(binary).Headless(true).NoSandbox(true).Set("disable-dev-shm-usage")
+	launch := launcher.New().Bin(binary).Headless(true).NoSandbox(os.Getenv("WALTER_BROWSER_NO_SANDBOX") == "1").Set("disable-dev-shm-usage")
 	url, err := launch.Launch()
 	if err != nil {
 		return nil, nil, err
@@ -325,7 +326,7 @@ func capture(args []string) error {
 	if err != nil {
 		return err
 	}
-	m := manifest{Format: 1, Revision: *revision, FixtureSourceHash: hash(fixtureSource), Platform: "linux",
+	m := manifest{Format: 1, Revision: *revision, FixtureSourceHash: hash(fixtureSource), Platform: runtime.GOOS,
 		Locale: "de-DE", Timezone: "Europe/Berlin", DeviceScaleFactor: 1, ReducedMotion: "reduce", Images: []captureEntry{}}
 	if *baseline != "" {
 		_, previous, err := loadDefinitions(*baseline)
