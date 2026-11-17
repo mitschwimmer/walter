@@ -63,7 +63,7 @@ func visible(selector string) string {
 	return fmt.Sprintf(`() => {const e=document.querySelector(%q);return !!e && !e.hidden && !!e.getClientRects().length}`, selector)
 }
 func hidden(selector string) string {
-	return fmt.Sprintf(`() => {const e=document.querySelector(%q);return !!e && (e.hidden || !e.getClientRects().length)}`, selector)
+	return fmt.Sprintf(`() => {const e=document.querySelector(%q);return !e || e.hidden || !e.getClientRects().length}`, selector)
 }
 func contentEqual(selector, value string) string {
 	return fmt.Sprintf(`() => document.querySelector(%q)?.textContent === %q`, selector, value)
