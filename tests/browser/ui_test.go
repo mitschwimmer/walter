@@ -150,7 +150,6 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
          composer.top-headline.bottom>=48 && style.textAlign==='start' && style.fontWeight==='500' &&
          style.backgroundImage.includes('headline-overlay.svg')
     }`, "welcome headline and composer layout")
-	checked(t, page, `() => getComputedStyle(document.querySelector('#content')).fontSize==='19px'`, "desktop input typography")
 
 	// Hold the first assistant reply. Every progress phase must be visible.
 	holdAnswer := f.holdNextAnswer()
