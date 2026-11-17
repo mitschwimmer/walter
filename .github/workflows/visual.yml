@@ -17,6 +17,8 @@ jobs:
   capture:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      WALTER_BROWSER_NO_SANDBOX: '1' # Unprivileged GitHub runner; keep local browser sandbox enabled.
     steps:
       - name: Check out candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
