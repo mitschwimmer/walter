@@ -1,12 +1,12 @@
-name: Temporary Rod source apply
+name: Temporary Rod dependency lock
 on:
   push:
     branches: [test/scenario-visual-rod]
-    paths: ['.rod-bundle.b64']
+    paths: ['tests/browser/**', '.github/workflows/dev-rod-apply.yml']
 permissions:
   contents: write
 jobs:
-  apply:
+  lock:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -15,16 +15,16 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: '1.25.3'
-      - name: Unpack development sources
-        run: |
-          base64 -d .rod-bundle.b64 | tar -xz
-          go -C tests/browser mod tidy
-      - name: Commit source files to feature branch
+      - name: Resolve test module
+        run: go -C tests/browser mod tidy
+      - name: Commit test-only module hashes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tests/browser
-          git commit -m "test: implement native Rod scenario capture and comparison [skip ci]"
-          git push origin HEAD:test/scenario-visual-rod
-      - name: Compile the Rod test tools
+          git add tests/browser/go.mod tests/browser/go.sum
+          if ! git diff --cached --quiet; then
+            git commit -m "test: pin Rod browser test dependencies [skip ci]"
+            git push origin HEAD:test/scenario-visual-rod
+          fi
+      - name: Compile Rod tests
         run: go -C tests/browser test ./...
