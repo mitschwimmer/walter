@@ -40,7 +40,7 @@
           gopls
           sops
           age
-          nodejs
+          chromium
           gcc # Required by Go's race detector, not the release binary.
         ];
         GOTOOLCHAIN = "local";
