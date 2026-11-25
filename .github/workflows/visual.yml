@@ -1,0 +1,94 @@
+name: Visual scenarios (Rod)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: walter-visual-rod-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      WALTER_BROWSER_NO_SANDBOX: '1' # Unprivileged GitHub runner; keep local browser sandbox enabled.
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out main baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref == 'main' && github.event.pull_request.base.sha || 'main' }}
+          path: .visual-base
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.25.3'
+          cache: true
+          cache-dependency-path: tests/browser/go.sum
+
+      - name: Locate installed Chrome
+        run: |
+          browser="$(command -v google-chrome || command -v chromium || true)"
+          test -n "$browser"
+          echo "WALTER_BROWSER_EXECUTABLE=$browser" >> "$GITHUB_ENV"
+          "$browser" --version
+
+      - name: Verify Go browser test tools
+        run: go -C tests/browser test ./...
+
+      - name: Test and capture candidate scenarios
+        run: go -C tests/browser run . capture --out "$RUNNER_TEMP/walter-visual/candidate" --revision "$GITHUB_SHA"
+
+      - name: Verify identical images compare unchanged
+        run: |
+          go -C tests/browser run . compare \
+            --base "$RUNNER_TEMP/walter-visual/candidate" \
+            --candidate "$RUNNER_TEMP/walter-visual/candidate" \
+            --base-defs "$GITHUB_WORKSPACE/tests/scenarios" \
+            --candidate-defs "$GITHUB_WORKSPACE/tests/scenarios" \
+            --out "$RUNNER_TEMP/walter-self-check"
+          jq -e --slurpfile m "$RUNNER_TEMP/walter-visual/candidate/manifest.json" \
+            '.counts.unchanged == ($m[0].images | length) and .counts.changed == 0 and .counts.added == 0 and .counts.removed == 0 and .counts["contract-changed"] == 0' \
+            "$RUNNER_TEMP/walter-self-check/summary.json"
+
+      - name: Capture comparable main scenarios
+        if: github.event_name == 'pull_request'
+        run: |
+          go -C tests/browser run . capture \
+            --web-root "$GITHUB_WORKSPACE/.visual-base/web" \
+            --baseline-contracts "$GITHUB_WORKSPACE/.visual-base/tests/scenarios" \
+            --revision "$(git -C "$GITHUB_WORKSPACE/.visual-base" rev-parse HEAD)" \
+            --out "$RUNNER_TEMP/walter-visual/main"
+
+      - name: Generate changed-only PR visual review
+        if: github.event_name == 'pull_request'
+        run: |
+          go -C tests/browser run . compare \
+            --base "$RUNNER_TEMP/walter-visual/main" \
+            --candidate "$RUNNER_TEMP/walter-visual/candidate" \
+            --base-defs "$GITHUB_WORKSPACE/.visual-base/tests/scenarios" \
+            --candidate-defs "$GITHUB_WORKSPACE/tests/scenarios" \
+            --out "$RUNNER_TEMP/walter-visual/report"
+
+      - name: Upload captures and visual review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: walter-rod-visual-scenarios
+          path: ${{ runner.temp }}/walter-visual
+          if-no-files-found: warn
+          retention-days: 7
