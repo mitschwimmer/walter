@@ -2,7 +2,7 @@ name: Nix
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
   workflow_dispatch:
 
@@ -23,7 +23,6 @@ jobs:
       - name: Check development shell and race detector
         run: |
           nix develop -c go test -race ./...
-          nix develop -c node tests/sse.test.mjs
       - name: Check Nix formatting
         run: |
           nix fmt -- flake.nix

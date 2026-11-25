@@ -1,0 +1,16 @@
+{
+  "id": "chat.history.populated",
+  "description": "History lists a saved conversation",
+  "fixture": "complete-reply",
+  "checkpoints": [
+    "list"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}

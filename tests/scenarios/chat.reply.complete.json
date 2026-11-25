@@ -1,0 +1,16 @@
+{
+  "id": "chat.reply.complete",
+  "description": "A completed answer contains prose, code and a table",
+  "fixture": "complete-reply",
+  "checkpoints": [
+    "answer"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}

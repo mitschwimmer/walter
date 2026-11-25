@@ -1,0 +1,16 @@
+{
+  "id": "chat.history.empty",
+  "description": "History explains how to start without conversations",
+  "fixture": "empty-chat",
+  "checkpoints": [
+    "list"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}

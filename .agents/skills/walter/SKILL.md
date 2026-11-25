@@ -19,13 +19,12 @@ Keep one Go process and the current cohesive `main` package; extract boundaries 
 
 ## Develop and verify
 
-Run commands from the repository root. Use `nix develop` for the pinned Go/gopls, Node, GCC and secret tools. Keep Helix and the preferred shell in workstation configuration; `hx .` can use the project’s gopls. Go owns the edit/test loop, Nix owns provisioning and packaging. Keep `GOTOOLCHAIN=local` in the development shell.
+Run commands from the repository root. Use `nix develop` for the pinned Go/gopls, Chromium, GCC and secret tools. Keep Helix and the preferred shell in workstation configuration; `hx .` can use the project’s gopls. Go owns the edit/test loop, Nix owns provisioning and packaging. Keep `GOTOOLCHAIN=local` in the development shell.
 
 ```sh
 go test ./...
 go test -race ./...
 go vet ./...
-node tests/sse.test.mjs
 CGO_ENABLED=0 go build -trimpath -o walter .
 ```
 
@@ -33,6 +32,14 @@ Use real HTTP fixtures and temporary storage with the standard `testing` package
 Report checks not run; fixture tests do not establish live OIDC/inference or proxy acceptance.
 
 Build the native release using `nix build`; inspect `result/bin/walter`. Run `nix flake check` and `nix fmt -- flake.nix` for packaging changes. Keep `flake.lock` pinned; update `vendorHash` through Nix when Go dependencies change. Do not decrypt secrets in Nix or commit private keys.
+
+## Branches and releases
+
+Keep main as the stable release and visual regression baseline. Integrate
+feature and fix PRs into develop; promote reviewed develop to main with a
+release PR. Never merge unverified changes into main merely to update a
+baseline. The CI candidate is the proposed merge revision; the baseline is
+the exact main checkout (the PR base SHA for release PRs). Record both SHAs.
 
 ## Make common changes
 
@@ -46,7 +53,7 @@ Build the native release using `nix build`; inspect `result/bin/walter`. Run `ni
 
 Read [configuration and behavior](references/configuration.md) for environment variables, profile contracts, API/SSE semantics and trust boundaries. Mount secrets through the `_FILE` settings, restart after rotation, and never configure both secret sources. Run `go run .` only with valid OIDC/model configuration and the HTTPS proxy; there is no insecure development mode.
 
-Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. CI publishes images from main and version tags; install by digest. Keep infrastructure configuration in its owning repository.
+Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. CI publishes stable images from main and version tags and development images from develop; install by digest. Keep infrastructure configuration in its owning repository.
 
 Inspect failed-request flight recorder output by request correlation, static route patterns,
 fixed authentication/rejection reasons, and operation/error fields. Distinguish

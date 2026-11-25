@@ -1,16 +1,37 @@
 # Browser tests and validation
 
-Install optional browser tools outside the repository and run the fixture suite:
+The browser regression runner is a separate Go module in `tests/browser`.
+It uses Rod and the pinned Archaic Visualtest library. No Node.js, npm or
+Playwright is needed. Run from a checkout using the pinned Nix development shell:
 
 ```sh
-npm install --prefix ../walter-ui-tools playwright@1.62.1
-../walter-ui-tools/node_modules/.bin/playwright install chromium
-WALTER_PLAYWRIGHT_MODULE="$(realpath ../walter-ui-tools/node_modules/playwright)" node tests/ui.test.mjs
+nix develop
+root="$PWD"
+cd tests/browser
+VISUALTEST_BROWSER_EXECUTABLE="$(command -v chromium)" go run -mod=mod . -root "$root" -out "$(mktemp -d)"
 ```
 
-Use `WALTER_BROWSER_EXECUTABLE` for an existing Chromium and `WALTER_SCREENSHOT_DIR` for desktop/mobile captures. Use `WALTER_COLOR_SCHEME=light` or `dark`; CI runs both. The suite uses a local fixture server, not a production authentication bypass. It covers submission modes, streaming, follow-ups, stop, history, deep links, deletion, retry, session expiry, logout and responsive overflow.
+To compare against a separate stable main checkout, add `-base /path/to/main`.
+The same compiled runner uses actual assets from both checkouts. Seven named
+scenarios in `tests/scenarios` cover login, composer, streaming, complete reply,
+history and deletion across desktop/mobile and light/dark. The runner also
+asserts interaction behavior, retry, cancellation, context limits, logout,
+session expiry, keyboard entry and the real browser SSE parser (all chunk
+sizes, UTF-8, CRLF, incomplete frames and large snapshots).
 
-The Nix workflow checks the package, tests/vet, development-shell race detector, SSE parser and Nix formatting. The OCI workflow runs Go checks, both browser themes and image packaging. Inspect the exact source commit’s Actions results; old validation notes do not prove the current tree passes. Report unavailable checks explicitly.
+Fixture servers use synthetic data and fresh isolated browser contexts, never
+production OIDC or inference. The contract includes the runner and fixture
+source and excludes the application web assets. The runner validates declared
+checkpoints, uses the installed Chromium from the pinned Nix shell, fixes
+locale/timezone/viewport/theme, and records full source revisions and manifests.
+A stable main checkout predating the catalog reports all scenarios as added.
+
+The OCI workflow compares the proposed merge or push to stable main, using a
+single pinned Chromium installation and read-only checkout permissions. It
+uploads raw captures and the changed-only HTML/JSON gallery for seven days.
+Test/capture errors fail CI; pixel differences are informational. The Nix
+workflow checks package, tests/vet, race detector and Nix formatting.
+Inspect the exact commit's Actions results. Report unavailable checks explicitly.
 
 ## Build metadata
 
