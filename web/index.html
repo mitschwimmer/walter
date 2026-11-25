@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f5ee" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#171d1a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <title>Walter · Frag’s Pferd.</title>
   <link rel="icon" href="/walter.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/oat.css">
@@ -15,7 +15,7 @@
 <body data-view="loading">
   <a class="skip-link" href="#main">Zum Inhalt</a>
   <header class="site-header">
-    <a id="home" class="brand" href="#" aria-label="Walter – neue Frage"><img src="/walter.svg" alt="" width="110" height="140"></a>
+    <a id="home" class="brand" href="#" aria-label="Walter – neue Frage"><img src="/walter.svg" alt="" width="110" height="110">walter</a>
     <nav id="account-menu" aria-label="Menü" hidden>
       <a id="new" href="#" hidden>Neue Frage</a>
       <a id="history-link" href="#historie">Historie</a>
@@ -31,7 +31,7 @@
       <a class="button" href="/auth/login">Anmelden</a>
     </section>
     <section id="chat" aria-label="Gespräch mit Walter" hidden>
-      <header class="conversation-heading" hidden><h2 id="conversation-title">Neue Frage</h2><button id="delete" class="ghost" data-variant="danger" type="button">Gespräch löschen</button></header>
+      <header class="conversation-heading" hidden><h1 id="conversation-title">Neue Frage</h1><button id="delete" class="ghost" data-variant="danger" type="button">Gespräch löschen</button></header>
       <div id="messages" role="log" aria-label="Nachrichten" aria-live="off"></div>
       
       <form id="composer">
@@ -44,7 +44,7 @@
           <span id="activity" role="status"></span>
           <button id="stop" class="outline" type="button" hidden>Antwort stoppen</button>
           <button id="quick" type="submit" name="thinking" value="quick" title="Schnell antworten" disabled>schnell</button>
-          <button id="thoughtful" type="submit" name="thinking" value="thoughtful" title="Bedacht antworten" disabled>bedacht</button>
+          <button id="thoughtful" class="outline" type="submit" name="thinking" value="thoughtful" title="Bedacht antworten" disabled>bedacht</button>
         </div>
         <p id="context-info" class="muted" title="Gespräch einschließlich Systemprompt und nächster Nachrichtenrahmen, ohne deine nächste Frage." hidden></p>
         <p id="context-full" class="muted" hidden>Kontext voll. <a href="#" class="text-link">Neue Frage starten</a></p>
@@ -52,14 +52,14 @@
       <p id="draft-hint" class="muted" hidden>Deine Frage bleibt im Eingabefeld. Prüfe das Gespräch vor einem erneuten Senden.</p>
     </section>
     <section id="history" aria-labelledby="history-title" hidden>
-      <header class="view-heading"><h2 id="history-title" tabindex="-1">Historie</h2><a href="#" class="text-link">Neue Frage</a></header>
+      <header class="view-heading"><h1 id="history-title" tabindex="-1">Historie</h1><a href="#" class="text-link">Neue Frage</a></header>
       <p id="history-status" class="muted" role="status"></p>
       <ul id="chats" class="conversation-list"></ul>
     </section>
   </main>
   <footer id="footer" class="site-footer" aria-label="Seiteninformationen" hidden><a id="imprint" hidden>Impressum</a><a id="privacy" hidden>Datenschutz</a><small id="revision" class="build-revision" hidden></small></footer>
   <div id="error" class="error" role="alert" hidden><p id="error-message"></p><button id="dismiss-error" type="button" aria-label="Fehlermeldung schließen">×</button></div>
-  <dialog id="delete-dialog" aria-labelledby="delete-title"><form method="dialog"><h2 id="delete-title">Gespräch löschen?</h2><p>Das Gespräch wird endgültig gelöscht.</p><div class="dialog-actions"><button value="cancel" autofocus>Behalten</button><button id="confirm-delete" class="danger" value="delete">Löschen</button></div></form></dialog>
+  <dialog id="delete-dialog" aria-labelledby="delete-title"><form method="dialog"><h2 id="delete-title">Gespräch löschen?</h2><p>Das Gespräch wird endgültig gelöscht.</p><div class="dialog-actions"><button class="outline" value="cancel" autofocus>Behalten</button><button id="confirm-delete" data-variant="danger" value="delete">Löschen</button></div></form></dialog>
   <noscript><p>Bitte aktiviere JavaScript, um Walter zu nutzen.</p></noscript>
 </body>
 </html>

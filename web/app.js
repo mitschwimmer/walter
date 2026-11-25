@@ -49,7 +49,7 @@ function bubble(m) {
   else body.textContent = m.content;
   if (m.role === 'assistant' && m.status === 'pending' && !body.hasChildNodes()) {
     const loader = document.createElement('div');
-    loader.className = `response-loader turn-${Math.floor(Math.random() * 4)} tempo-${Math.floor(Math.random() * 3)} tone-${Math.floor(Math.random() * 3)}`;
+    loader.className = `response-loader turn-${Math.floor(Math.random() * 4)} tempo-${Math.floor(Math.random() * 3)}`;
     loader.setAttribute('role', 'status');
     loader.setAttribute('aria-label', 'Walter bereitet die Antwort vor.');
     section.classList.add('waiting');
