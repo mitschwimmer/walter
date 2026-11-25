@@ -1,6 +1,6 @@
 module github.com/mitschwimmer/walter/tests/browser
 
-go 1.23.0
+go 1.25.0
 
 require (
 	github.com/archaic-work/visual-test v0.0.0-20261122154037-39114999d6b5

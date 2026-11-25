@@ -1,6 +1,6 @@
 {
   "id": "chat.reply.streaming",
-  "description": "A submitted question is waiting for the model",
+  "description": "Waiting for the first streamed assistant response",
   "fixture": "streaming-reply",
   "checkpoints": [
     "waiting"

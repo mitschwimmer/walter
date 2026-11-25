@@ -1,47 +1,39 @@
 # Browser tests and validation
 
-The browser regression runner is a separate Go module in `tests/browser`.
-It uses Rod and the pinned Archaic Visualtest library. No Node.js, npm or
-Playwright is needed. Run from a checkout using the pinned Nix development shell:
+Walter's browser regression suite and screenshot scenarios are native Go tests using a **real installed Chromium** through [Archaic Go visualtest](https://github.com/archaic-work/visual-test) and Rod. All test-only dependencies live in `tests/browser/go.mod`; the production `go.mod` and JavaScript frontend are unchanged.
+
+From the repository root (in `nix develop` on NixOS):
 
 ```sh
-nix develop
-root="$PWD"
-cd tests/browser
-VISUALTEST_BROWSER_EXECUTABLE="$(command -v chromium)" go run -mod=mod . -root "$root" -out "$(mktemp -d)"
+go -C tests/browser test ./... -v
+go -C tests/browser vet ./...
+go -C tests/browser run . capture --scenario chat.reply.streaming --out ../../../walter-screenshots
+go -C tests/browser run . capture --out ../../../walter-screenshots
 ```
 
-To compare against a separate stable main checkout, add `-base /path/to/main`.
-The same compiled runner uses actual assets from both checkouts. Seven named
-scenarios in `tests/scenarios` cover login, composer, streaming, complete reply,
-history and deletion across desktop/mobile and light/dark. The runner also
-asserts interaction behavior, retry, cancellation, context limits, logout,
-session expiry, keyboard entry and the real browser SSE parser (all chunk
-sizes, UTF-8, CRLF, incomplete frames and large snapshots).
+The first command runs `TestBrowserInteractions` under both light and dark themes and `TestSSEBrowserModule`. The SSE test executes the **real** `web/sse.js` ES module inside Chromium and covers all byte chunk sizes, split UTF-8, CRLF, multiline frames, incomplete streams, and a large HTML snapshot. The browser test uses a local synthetic HTTP server and exercises submission modes, streaming and progress, cancellation, persistence, retry, history and deep links, delete/cancel/failure, session expiry/logout, keyboard submission safety, context exhaustion, Markdown rendering, responsive layout and privacy invariants. Neither suite bypasses production OIDC or contacts external inference services.
 
-Fixture servers use synthetic data and fresh isolated browser contexts, never
-production OIDC or inference. The contract includes the runner and fixture
-source and excludes the application web assets. The runner validates declared
-checkpoints, uses the installed Chromium from the pinned Nix shell, fixes
-locale/timezone/viewport/theme, and records full source revisions and manifests.
-A stable main checkout predating the catalog reports all scenarios as added.
+Install Chromium through `nix develop` or system packages. Set `WALTER_BROWSER_EXECUTABLE` if Chromium is not on `PATH`. The browser is not automatically downloaded; only controlled CI should set `WALTER_BROWSER_NO_SANDBOX=1`. Tests skip browser execution when no browser is installed, so check that the browser job actually ran before claiming browser validation.
 
-The OCI workflow compares the proposed merge or push to stable main, using a
-single pinned Chromium installation and read-only checkout permissions. It
-uploads raw captures and the changed-only HTML/JSON gallery for seven days.
-Test/capture errors fail CI; pixel differences are informational. The Nix
-workflow checks package, tests/vet, race detector and Nix formatting.
-Inspect the exact commit's Actions results. Report unavailable checks explicitly.
+## Named scenarios and main-based PR reviews
+
+Scenario definitions live in `tests/scenarios/<area>.<capability>.<case>.json`. Their executable fixture is `tests/browser/fixture.go`, with assertions and checkpoint capture in `tests/browser/main.go`. Existing IDs include `chat.start.empty`, `chat.reply.streaming#waiting`, and `chat.history.populated`. The shared library validates the contracts and creates real Chromium screenshots in desktop (1071×1579), mobile (390×844), light and dark variants. The resulting `manifest.json` includes revision, browser version, environment and per-scenario fixture/assertion fingerprints. Captures are not committed as PNG goldens.
+
+The [visual workflow](../../../../.github/workflows/visual.yml) checks out the PR merge result and the exact `main` PR-base SHA (or a pinned `main` checkout for PRs targeting another branch). The same Go runner captures both revisions with their actual web assets, while `visualtest.Compare` reports **unchanged, changed, added, removed and contract-changed** views. The changed-only HTML report, PNG difference images, JSON summary and captures are kept in the `walter-go-visual-scenarios` artifact. Pixel differences are informational for human review; failed browser assertions or missing comparable captures fail CI. This PR-side workflow is read-only and uses no secrets.
+
+To reproduce a comparison locally with a separate checked-out `main` worktree:
+
+```sh
+go -C tests/browser run . capture --out ../../../walter-screenshots/candidate --base-root /path/to/walter-main
+```
+
+The base checkout should be the exact PR base commit for reproducibility. Fixtures remain synthetic and independently initialized per viewport/theme. Extend existing scenarios or add IDs for new UI behavior, updating their Go assertions in the same change.
 
 ## Build metadata
 
-Use Go 1.25 or newer outside Nix. Runtime dependencies are go-oidc, oauth2 and
-Goldmark; signed-token tests also use go-jose. Builds work without CGo; the race
-detector needs GCC/CGo. Keep dependency pins in `go.mod` / `go.sum`.
+Use Go 1.25 or newer outside Nix. Runtime dependencies are go-oidc, oauth2 and Goldmark; signed-token tests also use go-jose. Builds work without CGo; the race detector needs GCC/CGo. Keep runtime dependency pins in the root `go.mod` / `go.sum`, and browser-only dependencies in `tests/browser/go.mod` / `go.sum`.
 
-Go builds derive the revision from VCS metadata; OCI CI and Nix embed it with
-`-X main.revision=...`. Modified checkouts display `-dirty`; missing metadata
-shows `dev`. Source Docker builds need an explicit revision:
+Go builds derive the revision from VCS metadata; OCI CI and Nix embed it with `-X main.revision=...`. Modified checkouts display `-dirty`; missing metadata shows `dev`. Source Docker builds need an explicit revision:
 
 ```sh
 docker build --build-arg REVISION="$(git rev-parse HEAD)" -t walter .

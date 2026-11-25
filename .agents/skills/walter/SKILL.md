@@ -25,10 +25,11 @@ Run commands from the repository root. Use `nix develop` for the pinned Go/gopls
 go test ./...
 go test -race ./...
 go vet ./...
+go -C tests/browser test ./... -v
 CGO_ENABLED=0 go build -trimpath -o walter .
 ```
 
-Use real HTTP fixtures and temporary storage with the standard `testing` package. Run focused regressions while editing, then all Go tests and race detection when request lifecycle or shared state changes. For frontend changes, run the browser suite described in [testing](references/testing.md). Use [historical validation](references/validation-history.md) only for prior evidence.
+Use real HTTP fixtures and temporary storage with the standard `testing` package. The `tests/browser` module uses the shared `github.com/archaic-work/visual-test/visualtest` library and Rod strictly in test tooling; never import it from Walter's runtime module. Run focused regressions while editing, then all Go tests and race detection when request lifecycle or shared state changes. For frontend changes, run the existing broad browser suite and the native Rod/Chromium scenarios described in [testing](references/testing.md). Reference UI states by their stable scenario IDs, and inspect changed-only PR screenshots against `main`. Use [historical validation](references/validation-history.md) only for prior evidence.
 Report checks not run; fixture tests do not establish live OIDC/inference or proxy acceptance.
 
 Build the native release using `nix build`; inspect `result/bin/walter`. Run `nix flake check` and `nix fmt -- flake.nix` for packaging changes. Keep `flake.lock` pinned; update `vendorHash` through Nix when Go dependencies change. Do not decrypt secrets in Nix or commit private keys.
@@ -47,13 +48,14 @@ the exact main checkout (the PR base SHA for release PRs). Record both SHAs.
 - For API/storage changes, update route and persistence tests, preserve user isolation and interruption semantics, and document compatibility decisions.
 - For inference changes, test both backends, malformed/multiline streams, output limits, hidden reasoning, disconnects, write failures and final-save failures. Keep metadata optional for generation while recording actual dependency failures.
 - For diagnostics changes, test silent successes, failure replay through debug exactly once, redaction, original record ordering/scopes, overflow, cancellation, panic propagation, concurrent isolation and late work.
+- For UI changes, add or update the `tests/scenarios/*.json` manifests and Go browser assertions/fixtures in the separate `tests/browser` module. Keep scenario IDs stable and use the [visual review workflow](references/testing.md#named-scenarios-and-main-based-pr-reviews) for screenshot inspection; do not introduce frontend build dependencies.
 - For dependency/toolchain changes, keep Go modules, Nix packaging and the source Docker build consistent. Keep dependencies minimal and justify additions.
 
 ## Configure, debug and operate
 
 Read [configuration and behavior](references/configuration.md) for environment variables, profile contracts, API/SSE semantics and trust boundaries. Mount secrets through the `_FILE` settings, restart after rotation, and never configure both secret sources. Run `go run .` only with valid OIDC/model configuration and the HTTPS proxy; there is no insecure development mode.
 
-Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. CI publishes stable images from main and version tags and development images from develop; install by digest. Keep infrastructure configuration in its owning repository.
+Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. CI publishes images from main and version tags; install by digest. Keep infrastructure configuration in its owning repository.
 
 Inspect failed-request flight recorder output by request correlation, static route patterns,
 fixed authentication/rejection reasons, and operation/error fields. Distinguish

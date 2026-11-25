@@ -1,9 +1,9 @@
 {
-  "id": "chat.history.empty",
-  "description": "History explains how to start without conversations",
+  "id": "chat.start.empty",
+  "description": "Authenticated start view with an empty composer",
   "fixture": "empty-chat",
   "checkpoints": [
-    "list"
+    "ready"
   ],
   "viewports": [
     "desktop",

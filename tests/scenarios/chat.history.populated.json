@@ -1,9 +1,9 @@
 {
   "id": "chat.history.populated",
-  "description": "History lists a saved conversation",
-  "fixture": "complete-reply",
+  "description": "History view containing two synthetic conversations",
+  "fixture": "history-with-conversations",
   "checkpoints": [
-    "list"
+    "ready"
   ],
   "viewports": [
     "desktop",

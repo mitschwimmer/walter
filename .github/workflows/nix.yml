@@ -23,6 +23,7 @@ jobs:
       - name: Check development shell and race detector
         run: |
           nix develop -c go test -race ./...
+          nix develop -c go -C tests/browser test ./... -timeout 6m
       - name: Check Nix formatting
         run: |
           nix fmt -- flake.nix

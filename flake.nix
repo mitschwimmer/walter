@@ -40,7 +40,7 @@
           gopls
           sops
           age
-          chromium
+          chromium # Native Go/Rod browser tests.
           gcc # Required by Go's race detector, not the release binary.
         ];
         GOTOOLCHAIN = "local";
