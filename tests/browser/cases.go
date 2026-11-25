@@ -40,7 +40,7 @@ func complete(p *browser.Page) error {
 	return checks(p,
 		"() => document.querySelectorAll('.message').length === 2",
 		"() => document.querySelector('.assistant').tagName === 'ARTICLE'",
-		"() => document.querySelector('.assistant table') && document.querySelector('.assistant pre')",
+		"() => !!document.querySelector('.assistant table') && !!document.querySelector('.assistant pre')",
 		"() => document.querySelector('.user .message-content').textContent === 'Was ist Marmelade?'",
 		"() => document.querySelector('#context-info').textContent === 'Kontext: 50% · 8.192 / 16.384 Tokens'",
 		"() => getComputedStyle(document.querySelector('.assistant pre')).whiteSpace === 'pre'",
