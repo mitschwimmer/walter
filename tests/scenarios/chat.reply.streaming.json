@@ -1,0 +1,16 @@
+{
+  "id": "chat.reply.streaming",
+  "description": "A submitted question is waiting for the model",
+  "fixture": "streaming-reply",
+  "checkpoints": [
+    "waiting"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}

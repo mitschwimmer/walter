@@ -1,0 +1,87 @@
+name: Visual scenarios
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GOTOOLCHAIN: local
+      WALTER_PLAYWRIGHT_MODULE: ${{ runner.temp }}/walter-ui-tools/node_modules/playwright
+      VISUALTEST_REF: 39114999d6b5ccbb7653c3376872727c0db882fa
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.25.3'
+          cache: false
+      - name: Install pinned browser and comparator
+        run: |
+          npm install --prefix "$RUNNER_TEMP/walter-ui-tools" --no-audit --no-fund playwright@1.62.1
+          "$RUNNER_TEMP/walter-ui-tools/node_modules/.bin/playwright" install --with-deps chromium
+          GOBIN="$RUNNER_TEMP/bin" go install "github.com/archaic-work/visual-test/cmd/visualtest@$VISUALTEST_REF"
+      - name: Capture proposed merge
+        env:
+          WALTER_SCREENSHOT_DIR: ${{ runner.temp }}/candidate-shots
+        run: |
+          "$RUNNER_TEMP/bin/visualtest" validate tests/scenarios
+          node tests/visual.test.mjs
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: visual-base
+          persist-credentials: false
+      - name: Capture PR base
+        if: github.event_name == 'pull_request'
+        env:
+          WALTER_SCREENSHOT_DIR: ${{ runner.temp }}/base-shots
+        working-directory: visual-base
+        run: |
+          if [[ -d tests/scenarios ]]; then
+            "$RUNNER_TEMP/bin/visualtest" validate tests/scenarios
+            node tests/visual.test.mjs
+          else
+            # Catalog introduction: no prior scenario contracts exist.
+            mkdir -p "$WALTER_SCREENSHOT_DIR"
+            jq -n --arg revision "$(git rev-parse HEAD)" \
+              '{format:1, revision:$revision, environment:{}, contracts:{}, images:[]}' \
+              > "$WALTER_SCREENSHOT_DIR/manifest.json"
+          fi
+      - name: Compare visual scenarios
+        if: github.event_name == 'pull_request'
+        run: |
+          "$RUNNER_TEMP/bin/visualtest" compare \
+            --base "$RUNNER_TEMP/base-shots" \
+            --candidate "$RUNNER_TEMP/candidate-shots" \
+            --out "$RUNNER_TEMP/visual-report"
+      - name: Publish comparison
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-report
+          path: ${{ runner.temp }}/visual-report
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish raw captures and manifests
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-captures
+          path: |
+            ${{ runner.temp }}/candidate-shots
+            ${{ runner.temp }}/base-shots
+          if-no-files-found: warn
+          retention-days: 7

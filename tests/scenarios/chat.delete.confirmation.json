@@ -1,0 +1,16 @@
+{
+  "id": "chat.delete.confirmation",
+  "description": "Deleting a saved conversation requires confirmation",
+  "fixture": "complete-reply",
+  "checkpoints": [
+    "dialog"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}
