@@ -123,6 +123,7 @@ async function assertLoginLayout(proseSize, minimumGap) {
       gap: panelBox.top - headline.bottom,
       paragraphSize: paragraph.fontSize,
       paragraphAlign: paragraph.textAlign,
+      paragraphFont: paragraph.fontFamily,
       borderTop: getComputedStyle(panel).borderTopWidth,
     };
   });
@@ -131,6 +132,7 @@ async function assertLoginLayout(proseSize, minimumGap) {
   assert.ok(layout.gap >= minimumGap, 'login content needs breathing room beneath the headline');
   assert.equal(layout.paragraphSize, proseSize, 'login text uses readable prose size');
   assert.equal(layout.paragraphAlign, 'start');
+  assert.equal(layout.paragraphFont, 'sans-serif');
   assert.equal(layout.borderTop, '0px', 'login adds no redundant separator');
 }
 try {
@@ -149,23 +151,26 @@ try {
   assert.equal(await page.locator('#context-info').isVisible(), false);
   await screenshot('start-desktop');
   // Focus is visible and the welcome heading retains its layered color effect.
-  await page.locator('#content').fill('');
+  // Keep a valid required value while testing the ordinary focus state.
+  // Clearing an edited field and blurring it can activate :user-invalid,
+  // which correctly uses Oat's danger color instead of the focus color.
+  await page.locator('#content').fill('Was ist Marmelade?');
   await page.locator('#quick').focus();
   await page.locator('#content').focus();
+  assert.equal(await page.locator('#content').evaluate(el => el.validity.valid), true);
   // Oat transitions the input border color for 120ms; assert its settled state.
   await page.waitForFunction(() => {
     const style = getComputedStyle(document.querySelector('#content'));
-    return style.outlineColor === style.borderTopColor;
+    return style.boxShadow !== 'none' && ['rgb(147, 197, 223)', 'rgb(40, 91, 120)'].includes(style.borderTopColor);
   });
   const focusStyle = await page.locator('#content').evaluate(el => {
     const style = getComputedStyle(el);
-    return { outline: style.outlineStyle, width: style.outlineWidth,
-      offset: style.outlineOffset, outlineColor: style.outlineColor, borderColor: style.borderTopColor };
+    return { outline: style.outlineStyle, shadow: style.boxShadow,
+      borderColor: style.borderTopColor };
   });
-  assert.equal(focusStyle.outline, 'solid');
-  assert.equal(focusStyle.width, '1px');
-  assert.equal(focusStyle.offset, '0px');
-  assert.equal(focusStyle.outlineColor, focusStyle.borderColor);
+  assert.equal(focusStyle.outline, 'none');
+  assert.notEqual(focusStyle.shadow, 'none');
+  assert.equal(focusStyle.borderColor, colorScheme === 'dark' ? 'rgb(147, 197, 223)' : 'rgb(40, 91, 120)');
   assert.equal(await page.locator('#content').getAttribute('placeholder'), 'Was möchtest du wissen?');
   const welcomeLayout = await page.evaluate(() => {
     const headline = document.querySelector('.headline');
@@ -257,6 +262,10 @@ try {
     return {
       centered: Math.abs(box.left + box.width / 2 - (parent.left + parent.width / 2)) < 2,
       proseNarrower: box.width < parent.width,
+      proseFont: getComputedStyle(el.querySelector('p')).fontFamily,
+      proseAlign: getComputedStyle(el.querySelector('p')).textAlign,
+      headingWeight: getComputedStyle(el.querySelector('h2')).fontWeight,
+      codeFont: getComputedStyle(code.querySelector('code')).fontFamily,
       codeWrap: getComputedStyle(code).whiteSpace,
       codeScrollable: code.scrollWidth > code.clientWidth,
       tableWrap: getComputedStyle(table.querySelector('td')).whiteSpace,
@@ -264,6 +273,10 @@ try {
   });
   assert.equal(articleLayout.centered, true);
   assert.equal(articleLayout.proseNarrower, true);
+  assert.equal(articleLayout.proseFont, 'sans-serif');
+  assert.equal(articleLayout.proseAlign, 'start');
+  assert.equal(articleLayout.headingWeight, '500');
+  assert.equal(articleLayout.codeFont, 'monospace');
   assert.equal(articleLayout.codeWrap, 'pre');
   assert.equal(articleLayout.codeScrollable, true);
   assert.equal(articleLayout.tableWrap, 'nowrap');
@@ -292,18 +305,29 @@ try {
     assert.ok(colors.scheme.includes('light') && colors.scheme.includes('dark'));
     assert.equal(await page.locator('.headline').isVisible(), false);
     if (scheme === 'dark') {
-      assert.equal(colors.background, 'rgb(23, 29, 26)');
+      assert.equal(colors.background, 'rgb(0, 0, 0)');
       assert.equal(colors.foreground, 'rgb(236, 237, 228)');
-      assert.equal(colors.code, 'rgb(35, 43, 39)');
+      assert.equal(colors.code, 'rgb(16, 21, 18)');
     } else {
       assert.equal(colors.background, 'rgb(247, 245, 238)');
       assert.equal(colors.foreground, 'rgb(36, 41, 34)');
       assert.equal(colors.code, 'rgb(237, 240, 235)');
     }
     assert.equal(colors.panel, 'rgba(0, 0, 0, 0)');
-    assert.equal(colors.dialog, colors.background);
+    assert.equal(colors.dialog, scheme === 'dark' ? 'rgb(16, 21, 18)' : colors.background);
     assert.equal(colors.error, colors.background);
     await screenshot(`conversation-${scheme}`);
+  }
+  // Explicit overrides take precedence over the opposite OS preference.
+  for (const [scheme, opposite, expected] of [
+    ['light', 'dark', 'rgb(247, 245, 238)'],
+    ['dark', 'light', 'rgb(0, 0, 0)'],
+  ]) {
+    await page.emulateMedia({ colorScheme: opposite });
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, scheme);
+    assert.equal(await page.locator('body').evaluate(el => getComputedStyle(el).backgroundColor), expected);
+    assert.equal(await page.locator(':root').evaluate(el => getComputedStyle(el).colorScheme), scheme);
+    await page.evaluate(() => { delete document.documentElement.dataset.theme; });
   }
   await page.emulateMedia({ colorScheme });
   const conversationURL = page.url();
