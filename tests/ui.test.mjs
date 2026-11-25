@@ -151,9 +151,13 @@ try {
   assert.equal(await page.locator('#context-info').isVisible(), false);
   await screenshot('start-desktop');
   // Focus is visible and the welcome heading retains its layered color effect.
-  await page.locator('#content').fill('');
+  // Keep a valid required value while testing the ordinary focus state.
+  // Clearing an edited field and blurring it can activate :user-invalid,
+  // which correctly uses Oat's danger color instead of the focus color.
+  await page.locator('#content').fill('Was ist Marmelade?');
   await page.locator('#quick').focus();
   await page.locator('#content').focus();
+  assert.equal(await page.locator('#content').evaluate(el => el.validity.valid), true);
   // Oat transitions the input border color for 120ms; assert its settled state.
   await page.waitForFunction(() => {
     const style = getComputedStyle(document.querySelector('#content'));
