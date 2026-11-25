@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
-	"github.com/mitschwimmer/go-skill/visualtest"
-	rodtest "github.com/mitschwimmer/go-skill/visualtest/rod"
+	"github.com/archaic-work/visual-test/visualtest"
+	rodtest "github.com/archaic-work/visual-test/visualtest/rod"
 )
 
 const readyStart = `() => document.body.dataset.view === 'start'`

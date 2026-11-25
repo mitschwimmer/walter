@@ -16,28 +16,28 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { min-height: 100dvh; display: flex; flex-direction: column; }
-body > :is(header, main, footer) { width: min(100% - 2.5rem, 76rem); margin-inline: auto; }
 body > header.site-header { align-items: center; }
-.site-header .brand { display: inline-flex; align-items: center; width: 2.75rem; flex-shrink: 0; }
-.brand img { display: block; width: 100%; height: auto; }
+.site-header .brand { display: inline-flex; align-items: center; gap: var(--archaic-space-sm); flex-shrink: 0; }
+.brand img { display: block; width: 2.75rem; height: auto; }
+body:is([data-view="conversation"], [data-view="history"]) .brand img { display: none; }
 @media (prefers-color-scheme: dark) { .brand img { filter: brightness(0) invert(.9); } }
-:root[data-theme="dark"] .brand img { filter: brightness(0) invert(.9); }
-:root[data-theme="light"] .brand img { filter: none; }
-.site-header nav { display: flex; flex-wrap: wrap; justify-content: end; gap: .6rem 1.5rem; align-items: center; }
+:root[data-theme="dark"] .brand img, body[data-theme="dark"] .brand img { filter: brightness(0) invert(.9); }
+:root[data-theme="light"] .brand img, body[data-theme="light"] .brand img { filter: none; }
+.site-header nav { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--archaic-space-sm) var(--archaic-space-md); align-items: center; }
 .site-header nav :is(a,button) { color: var(--foreground); background: none; border: 0; padding: .2rem 0; font: 400 .875rem/1.5 sans-serif; text-decoration: underline; text-underline-offset: .2em; }
 .site-header nav :is(a,button):hover { color: var(--primary); }
 .site-header nav a[aria-current="page"] { font-weight: 600; text-decoration-thickness: 2px; }
-body > main { flex: 1; padding-block: 2.5rem 4rem; min-width: 0; }
+body > main { flex: 1; min-width: 0; }
 /* The shared documentation shell gives direct sections a top rule; a chat
    application owns its view separators instead. */
 main > :is(#login, #chat, #history) { margin: 0; padding: 0; border-top: 0; }
 /* Center the login panel as well as the headline, with room between them. */
-main > #login { margin-inline: auto; padding-block-start: 1.5rem; }
+main > #login { margin-inline: auto; padding-block-start: var(--archaic-space-md); }
 main:focus { outline: none; }
 /* Welcome identity stays large; do not invent a replacement for the original
    layered geometry/rainbow/text-clip effect. */
-.headline { width: fit-content; max-width: 100%; margin: 1.4rem auto 4rem;
-  text-align: start; white-space: nowrap; color: var(--brand-blue);
+.headline { width: fit-content; max-width: 100%; margin: var(--archaic-space-md) auto var(--archaic-space-xl);
+  text-align: start; color: var(--brand-blue);
   font-family: sans-serif; font-size: clamp(2rem, 7.4vw, 6.1rem);
   font-weight: 500; line-height: 1.05; letter-spacing: -.055em; }
 body[data-view="conversation"] .headline,
@@ -54,27 +54,26 @@ body[data-view="history"] .headline { display: none; }
 #login, #chat, #history { width: 100%; }
 .login-panel { max-width: 68ch; }
 .login-panel h2 { font-size: 1.5rem; }
-.login-panel p { font: 1.1875rem/1.55 serif; max-width: 44ch; margin-block: .75rem 1.25rem; }
-.login-panel .button { display: inline-flex; padding: .6rem 1.25rem; text-decoration: none; background: var(--primary); color: var(--primary-foreground); }
+.login-panel p { font: 1.1875rem/1.6 var(--font-sans); max-width: 44ch; margin-block: .75rem 1.25rem; }
 #chat { max-width: 100%; }
 .conversation-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
-  border-bottom: 1px solid var(--archaic-rule); padding-bottom: .8rem; margin: 0 0 2rem; }
-.conversation-heading h2 { margin: 0; font-size: 1.3rem; overflow-wrap: anywhere; }
+  border-bottom: 1px solid var(--archaic-rule); padding-bottom: var(--archaic-space-sm); margin: 0 0 var(--archaic-space-lg); }
+.conversation-heading h1 { margin: 0; font-size: 1.3rem; overflow-wrap: anywhere; }
 .conversation-heading #delete { flex-shrink: 0; font-size: .78rem; padding: .3rem .4rem; }
 #messages { width: 100%; min-width: 0; }
 #messages:empty { display: none; }
-.message { min-width: 0; margin: 0 0 2rem; }
+.message { min-width: 0; margin: 0 0 var(--archaic-space-lg); }
 .message.user { display: flow-root; }
 .message.user .message-content {
   width: fit-content; max-width: min(85%, 68ch); margin-inline-start: auto;
   padding: .85rem 1.15rem; background: var(--archaic-tint); border-inline-start: 3px solid var(--archaic-rule);
   overflow-wrap: anywhere; white-space: pre-wrap; }
-.message.assistant { display: flow-root; padding-bottom: 2rem; border-bottom: 1px solid var(--archaic-rule); }
-.message.assistant .message-content { max-width: 68ch; margin-inline: auto; font: 1.1875rem/1.6 serif; overflow-wrap: anywhere; }
+.message.assistant { display: flow-root; padding-bottom: var(--archaic-space-lg); border-bottom: 1px solid var(--archaic-rule); }
+.message.assistant .message-content { max-width: 68ch; margin-inline: auto; font: 1.1875rem/1.6 var(--font-sans); overflow-wrap: anywhere; }
 .message-content > :first-child { margin-top: 0; }
 .message-content > :last-child { margin-bottom: 0; }
 .message-content p { margin: 0 0 1.1em; }
-.message-content :is(h1,h2,h3,h4,h5,h6) { font-family: sans-serif; line-height: 1.25; letter-spacing: -.015em; font-weight: 600; margin: 1.35em 0 .6em; }
+.message-content :is(h1,h2,h3,h4,h5,h6) { font-family: sans-serif; line-height: 1.25; letter-spacing: -.015em; font-weight: 500; margin: 1.35em 0 .6em; }
 .message-content h1 { font-size: 1.5em; }
 .message-content h2 { font-size: 1.3em; }
 .message-content h3 { font-size: 1.15em; }
@@ -104,7 +103,7 @@ body[data-view="history"] .headline { display: none; }
   grid-template-rows: 60px auto;
   gap: 16px;
   padding-block: 24px;
-  color: var(--brand-teal);
+  color: var(--primary);
   --loader-duration: 2.4s;
   --loader-turn: 0deg;
 }
@@ -114,8 +113,6 @@ body[data-view="history"] .headline { display: none; }
 .response-loader.turn-3 { --loader-turn: 270deg; }
 .response-loader.tempo-1 { --loader-duration: 2.8s; }
 .response-loader.tempo-2 { --loader-duration: 3.2s; }
-.response-loader.tone-1 { color: var(--brand-blue); }
-.response-loader.tone-2 { color: var(--brand-purple); }
 .response-loader::before {
   content: '';
   width: 60px;
@@ -166,29 +163,27 @@ body[data-view="history"] .headline { display: none; }
 }
 
 .response-status { color: var(--archaic-muted-ink); font-family: sans-serif; }
-#composer { max-width: 68ch; margin: 1.5rem auto 0; }
+#composer { max-width: 68ch; margin: var(--archaic-space-md) auto 0; }
 #composer #prompt-input label { display: block; font: 600 .875rem/1.4 sans-serif; margin-block-end: .4rem; }
 #composer textarea { width: 100%; min-height: 6rem; max-height: 65vh; resize: vertical;
   margin: 0; padding: .75rem 1rem; font: 1rem/1.5 sans-serif;
-  border: 1px solid var(--input); background: var(--background); color: var(--foreground); }
-#composer textarea:focus-visible { border-color: var(--ring); outline: 1px solid var(--ring); outline-offset: 0; box-shadow: none; }
+}
 #composer textarea::placeholder { color: var(--archaic-muted-ink); }
 .composer-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: .5rem;
-  margin-top: .75rem; }
+  margin-top: var(--archaic-space-sm); }
 .composer-actions #quick, .composer-actions #thoughtful { min-height: 2.5rem; min-width: 6.5rem; }
-.composer-actions #quick { background: var(--primary); color: var(--primary-foreground); }
-.composer-actions #thoughtful { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+.composer-actions #thoughtful { color: var(--primary); border-color: var(--primary); }
 .composer-actions #activity { margin-right: auto; font: .8rem/1.5 sans-serif; color: var(--archaic-muted-ink); }
 .composer-actions #stop { margin-right: auto; }
-#context-info, #context-full { text-align: right; margin: .6rem 0 0; }
+#context-info, #context-full { text-align: start; margin: var(--archaic-space-sm) 0 0; }
 .muted, #draft-hint { font: .8rem/1.5 sans-serif; color: var(--archaic-muted-ink); }
 #draft-hint { max-width: 68ch; margin: 1rem auto; }
 #history { max-width: 68rem; margin-inline: auto; }
 .view-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
-  border-bottom: 3px solid var(--foreground); padding-bottom: 1rem; }
-.view-heading h2 { margin: 0; font-size: 2rem; }
+  border-bottom: 3px solid var(--foreground); padding-bottom: var(--archaic-space-md); }
+.view-heading h1 { margin: 0; font-size: 2rem; }
 .text-link { color: var(--primary); text-decoration: underline; font: .875rem/1.5 sans-serif; }
-.conversation-list { padding: 0; margin: 1.5rem 0; list-style: none; }
+.conversation-list { padding: 0; margin: var(--archaic-space-md) 0; list-style: none; }
 .conversation-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   border-bottom: 1px solid var(--archaic-rule); }
 .conversation-list li a { display: flex; align-items: baseline; justify-content: space-between;
@@ -205,17 +200,12 @@ body[data-view="history"] .headline { display: none; }
   display: flex; align-items: start; gap: 1rem; }
 .error p { flex: 1; margin: 0; }
 .error button { border: 0; background: transparent; color: var(--danger); font-size: 1.25rem; }
-dialog { color: var(--foreground); background: var(--background); border: 1px solid var(--archaic-rule); border-radius: 0;
-  box-shadow: none; padding: 1.5rem; }
-dialog::backdrop { background: rgb(0 0 0 / .5); }
-.dialog-actions { display: flex; justify-content: flex-end; gap: .75rem; padding-top: 1.5rem; }
-.dialog-actions button { border-radius: 0; }
-.dialog-actions .danger { color: var(--danger); border: 1px solid var(--danger); background: transparent; }
+dialog { padding: var(--archaic-space-md); }
+dialog > form > p { padding: 0; margin-block: var(--archaic-space-sm) var(--archaic-space-md); }
+.dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--archaic-space-sm); padding: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 48rem) {
-  body > :is(header, main, footer) { width: min(100% - 2rem, 76rem); }
-  body > main { padding-block: 2rem 3rem; }
-  .headline { font-size: clamp(1.9rem, 8.5vw, 4.2rem); margin-bottom: 2.25rem; }
+  .headline { font-size: clamp(1.9rem, 8.5vw, 4.2rem); margin-bottom: var(--archaic-space-lg); }
   .message.user .message-content { max-width: 92%; }
   .message.assistant .message-content { font-size: 1.0625rem; }
   .login-panel p { font-size: 1.0625rem; }
@@ -228,11 +218,12 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
   .site-header nav { gap: .5rem .75rem; }
   .site-header nav :is(a,button) { font-size: .75rem; }
   .conversation-heading { align-items: flex-start; }
-  .conversation-heading h2 { font-size: 1.1rem; }
+  .conversation-heading h1 { font-size: 1.1rem; }
   .conversation-list li { gap: .4rem; }
   .conversation-list .delete-conversation { font-size: .75rem; }
   .composer-actions #quick, .composer-actions #thoughtful { min-width: 5.75rem; }
 }
 @media (forced-colors: active) {
+  #composer textarea:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
   .composer-actions #quick, .composer-actions #thoughtful { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
 }

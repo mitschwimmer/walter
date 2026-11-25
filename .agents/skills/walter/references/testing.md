@@ -1,6 +1,6 @@
 # Browser tests and validation
 
-Walter's browser regression suite and screenshot scenarios are native Go tests using a **real installed Chromium** through [Archaic Go visualtest](https://github.com/mitschwimmer/go-skill/tree/main/visualtest) and Rod. All test-only dependencies live in `tests/browser/go.mod`; the production `go.mod` and JavaScript frontend are unchanged.
+Walter's browser regression suite and screenshot scenarios are native Go tests using a **real installed Chromium** through [Archaic Go visualtest](https://github.com/archaic-work/visual-test) and Rod. All test-only dependencies live in `tests/browser/go.mod`; the production `go.mod` and JavaScript frontend are unchanged.
 
 From the repository root (in `nix develop` on NixOS):
 

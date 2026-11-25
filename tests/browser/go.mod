@@ -3,8 +3,8 @@ module github.com/mitschwimmer/walter/tests/browser
 go 1.25.0
 
 require (
+	github.com/archaic-work/visual-test v0.0.0-20261122154037-39114999d6b5
 	github.com/go-rod/rod v0.116.2
-	github.com/mitschwimmer/go-skill v0.0.0-20261117194738-86a06b7d671c
 )
 
 require (
