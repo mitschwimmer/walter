@@ -16,11 +16,40 @@ Superseded runs are cancelled. Plain `docker build .` remains a standalone
 source build. Images currently target linux/amd64. The container runs a static Go binary as
 UID/GID 65532, includes public CA trust for outbound OIDC HTTPS, and has no shell.
 
+## Daemonless OCI packaging
+
+The new portable `ko` path uses the same Go module and embedded web assets.
+Use the pinned `ko` and Go versions in `nix develop`, or provision a pinned
+compatible toolchain in CI. Run tests against the exact clean source revision
+before publication. The destination registry is supplied externally:
+
+```sh
+export KO_DOCKER_REPO=registry.example.com/walter
+revision="$(git rev-parse HEAD)"
+test -z "$(git status --porcelain)"
+ko build --bare --image-user=65532:65532 \
+  --tags="sha-$revision" \
+  --image-label="org.opencontainers.image.source=https://github.com/mitschwimmer/walter" \
+  --image-label="org.opencontainers.image.revision=$revision" .
+```
+
+Record the returned immutable digest; no Docker daemon is required.
+For a credential-free packaging check, use
+`KO_DOCKER_REPO=example.invalid/walter ko build --bare --push=false --image-user=65532:65532 --oci-layout-path=/tmp/walter-oci .`
+with a fresh output directory. The pinned nonroot distroless base supplies
+public CA trust. The ko entrypoint is `/ko-app/walter`, rather than `/walter`.
+Its linked runtime defaults remain `0.0.0.0:8080` and `/data`; explicit
+environment values take precedence. The operator **must mount** a writable
+directory at `/data` for UID/GID 65532; unlike the old Dockerfile, the base
+does not provision that directory. The runtime needs neither a shell nor Nix.
+Keep the existing Dockerfile and GitHub publication path until migration;
+do not infer runtime acceptance from a successful packaging check.
+
 ## Runtime contract
 
 | Setting | Container value |
 |---|---|
-| Process | `/walter` |
+| Process | `/ko-app/walter` (ko), `/walter` (legacy Dockerfile) |
 | User | `65532:65532` |
 | Listen | `0.0.0.0:8080` inside the container |
 | Persistent writable directory | `/data`, owned by 65532, mode 0700 |

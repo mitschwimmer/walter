@@ -33,7 +33,7 @@ The base checkout should be the exact PR base commit for reproducibility. Fixtur
 
 Use Go 1.25 or newer outside Nix. Runtime dependencies are go-oidc, oauth2 and Goldmark; signed-token tests also use go-jose. Builds work without CGo; the race detector needs GCC/CGo. Keep runtime dependency pins in the root `go.mod` / `go.sum`, and browser-only dependencies in `tests/browser/go.mod` / `go.sum`.
 
-Go builds derive the revision from VCS metadata; OCI CI and Nix embed it with `-X main.revision=...`. Modified checkouts display `-dirty`; missing metadata shows `dev`. Source Docker builds need an explicit revision:
+Go builds derive the revision from VCS metadata; ko, OCI CI and Nix embed it with `-X main.revision=...`. Modified checkouts display `-dirty`; missing metadata shows `dev`. Use the [ko packaging procedure](operations.md#daemonless-oci-packaging) for the new OCI build. Legacy source Docker builds need an explicit revision:
 
 ```sh
 docker build --build-arg REVISION="$(git rev-parse HEAD)" -t walter .

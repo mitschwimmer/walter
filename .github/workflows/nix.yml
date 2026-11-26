@@ -24,6 +24,31 @@ jobs:
         run: |
           nix develop -c go test -race ./...
           nix develop -c go -C tests/browser test ./... -timeout 6m
+      - name: Verify daemonless ko OCI packaging
+        run: |
+          export KO_DOCKER_REPO=example.invalid/walter
+          nix develop -c ko build --bare --push=false --image-user=65532:65532 --oci-layout-path="$RUNNER_TEMP/walter-oci" .
+          python3 - "$RUNNER_TEMP/walter-oci" <<'PY'
+          import json
+          import pathlib
+          import sys
+          root = pathlib.Path(sys.argv[1])
+          def blob(ref):
+              algorithm, digest = ref["digest"].split(":", 1)
+              return json.loads((root / "blobs" / algorithm / digest).read_text())
+          def configs(index):
+              for ref in index["manifests"]:
+                  doc = blob(ref)
+                  if "manifests" in doc:
+                      yield from configs(doc)
+                  elif "config" in doc:
+                      yield blob(doc["config"])
+          images = [x for x in configs(json.loads((root / "index.json").read_text())) if x.get("os") == "linux" and x.get("architecture") == "amd64"]
+          assert len(images) == 1, "expected one linux/amd64 application image"
+          config = images[0]["config"]
+          assert config["User"] == "65532:65532", config["User"]
+          assert config["Entrypoint"] == ["/ko-app/walter"], config["Entrypoint"]
+          PY
       - name: Check Nix formatting
         run: |
           nix fmt -- flake.nix
