@@ -49,13 +49,20 @@ func secret(key string) (string, error) {
 	}
 	return strings.TrimRight(string(b), "\r\n"), nil
 }
+// OCI packaging can override these defaults at link time without changing the
+// loopback-only native binary defaults. Explicit environment settings win.
+var (
+	defaultListen  = "127.0.0.1:8080"
+	defaultDataDir = "data"
+)
+
 func config() (Config, error) {
 	c := Config{
-		Listen:            env("WALTER_LISTEN", "127.0.0.1:8080"),
+		Listen:            env("WALTER_LISTEN", defaultListen),
 		PublicURL:         os.Getenv("WALTER_PUBLIC_URL"),
 		Issuer:            os.Getenv("WALTER_OIDC_ISSUER"),
 		ClientID:          os.Getenv("WALTER_OIDC_CLIENT_ID"),
-		DataDir:           env("WALTER_DATA_DIR", "data"),
+		DataDir:           env("WALTER_DATA_DIR", defaultDataDir),
 		Endpoint:          os.Getenv("WALTER_LLAMA_ENDPOINT"),
 		Model:             os.Getenv("WALTER_MODEL"),
 		Groups:            strings.Split(env("WALTER_ALLOWED_GROUPS", "walter-users"), ","),

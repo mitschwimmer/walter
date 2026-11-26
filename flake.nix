@@ -38,6 +38,7 @@
         packages = with pkgs; [
           go
           gopls
+          ko
           sops
           age
           chromium # Native Go/Rod browser tests.
