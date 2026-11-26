@@ -35,7 +35,7 @@ ko build --bare --image-user=65532:65532 \
 
 Record the returned immutable digest; no Docker daemon is required.
 For a credential-free packaging check, use
-`KO_DOCKER_REPO=ko.local/walter ko build --bare --push=false --image-user=65532:65532 --oci-layout-path=/tmp/walter-oci .`
+`KO_DOCKER_REPO=example.invalid/walter ko build --bare --push=false --image-user=65532:65532 --oci-layout-path=/tmp/walter-oci .`
 with a fresh output directory. The pinned nonroot distroless base supplies
 public CA trust. The ko entrypoint is `/ko-app/walter`, rather than `/walter`.
 Its linked runtime defaults remain `0.0.0.0:8080` and `/data`; explicit

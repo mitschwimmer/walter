@@ -26,7 +26,7 @@ jobs:
           nix develop -c go -C tests/browser test ./... -timeout 6m
       - name: Verify daemonless ko OCI packaging
         run: |
-          export KO_DOCKER_REPO=ko.local/walter
+          export KO_DOCKER_REPO=example.invalid/walter
           nix develop -c ko build --bare --push=false --image-user=65532:65532 --oci-layout-path="$RUNNER_TEMP/walter-oci" .
           python3 - "$RUNNER_TEMP/walter-oci" <<'PY'
           import json
