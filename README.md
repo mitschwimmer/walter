@@ -8,6 +8,8 @@ frontend build step. Inference is accessible only through the backend.
 Start with the [Walter maintenance skill](.agents/skills/walter/SKILL.md) for
 building, testing, configuration, debugging, and deployment.
 
+GitHub hosts the source and reviews. Tests and OCI publication use manually invoked external CI (Tekton); native Nix validation remains [independently callable](.agents/skills/walter/references/testing.md#manual-ci-and-separate-native-nix-validation).
+
 ## Session diagnostics
 
 Failed HTTP requests replay structured events with a generated `request_id`, a static

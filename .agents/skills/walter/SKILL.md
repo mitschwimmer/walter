@@ -41,13 +41,13 @@ Build the native release using `nix build`; inspect `result/bin/walter`. Run `ni
 - For inference changes, test both backends, malformed/multiline streams, output limits, hidden reasoning, disconnects, write failures and final-save failures. Keep metadata optional for generation while recording actual dependency failures.
 - For diagnostics changes, test silent successes, failure replay through debug exactly once, redaction, original record ordering/scopes, overflow, cancellation, panic propagation, concurrent isolation and late work.
 - For UI changes, add or update the `tests/scenarios/*.json` manifests and Go browser assertions/fixtures in the separate `tests/browser` module. Keep scenario IDs stable and use the [visual review workflow](references/testing.md#named-scenarios-and-main-based-pr-reviews) for screenshot inspection; do not introduce frontend build dependencies.
-- For dependency/toolchain changes, keep Go modules, Nix packaging, ko configuration and any remaining source Docker build consistent. Keep dependencies minimal and justify additions.
+- For dependency/toolchain changes, keep Go modules, Nix packaging and ko configuration consistent. Keep dependencies minimal and justify additions.
 
 ## Configure, debug and operate
 
 Read [configuration and behavior](references/configuration.md) for environment variables, profile contracts, API/SSE semantics and trust boundaries. Mount secrets through the `_FILE` settings, restart after rotation, and never configure both secret sources. Run `go run .` only with valid OIDC/model configuration and the HTTPS proxy; there is no insecure development mode.
 
-Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. Use ko for daemonless OCI packaging; publish only tested, clean revisions and install by digest. The existing GitHub OCI workflow remains until its replacement is accepted. Keep infrastructure configuration in its owning repository.
+Read [operations](references/operations.md) for OCI releases, Incus runtime requirements, Caddy, backup/restore and live acceptance. Use ko for daemonless OCI packaging; publish only tested, clean revisions and install by digest. CI is invoked manually by the operator on an external Tekton installation; GitHub hosts source and reviews only. See [testing](references/testing.md) for the separate native Nix checks. The infrastructure owner manages pipeline definitions, publication credentials and deployment. Keep infrastructure configuration in its owning repository.
 
 Inspect failed-request flight recorder output by request correlation, static route patterns,
 fixed authentication/rejection reasons, and operation/error fields. Distinguish
