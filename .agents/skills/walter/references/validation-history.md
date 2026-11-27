@@ -1,7 +1,7 @@
 # Historical validation
 
 Treat these dated results as historical evidence, not proof for the current tree.
-Use [testing](testing.md) and exact-commit Actions runs for current validation.
+Use [testing](testing.md) and exact-commit manual CI evidence for current validation. References to GitHub Actions, Docker and earlier test frameworks below describe their historical context only.
 
 ## OpenAI Chat Completions backend (2026-10-26)
 

@@ -110,3 +110,19 @@ func TestProfileValidationAtStartup(t *testing.T) {
 		})
 	}
 }
+
+func TestRuntimeLocationDefaults(t *testing.T) {
+	backendConfig(t)
+	t.Setenv("WALTER_LISTEN", "")
+	t.Setenv("WALTER_DATA_DIR", "")
+	c, err := config()
+	if err != nil || c.Listen != defaultListen || c.DataDir != defaultDataDir {
+		t.Fatal("default runtime locations not preserved", err)
+	}
+	t.Setenv("WALTER_LISTEN", "127.0.0.1:9000")
+	t.Setenv("WALTER_DATA_DIR", t.TempDir())
+	c, err = config()
+	if err != nil || c.Listen != "127.0.0.1:9000" || c.DataDir != os.Getenv("WALTER_DATA_DIR") {
+		t.Fatal("explicit runtime locations did not override defaults", err)
+	}
+}
