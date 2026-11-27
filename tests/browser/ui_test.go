@@ -84,8 +84,8 @@ func loginLayout(t *testing.T, page *rod.Page, size string, gap int) {
       return Math.abs(title.left+title.width/2-innerWidth/2)<2 &&
         Math.abs(panel.left+panel.width/2-innerWidth/2)<2 &&
         panel.top-title.bottom>=%d && text.fontSize===%q &&
-        text.textAlign==='start' && text.fontFamily==='sans-serif' &&
-        getComputedStyle(document.querySelector('#login')).borderTopWidth==='0px';
+        text.textAlign==='start' && text.fontFamily.includes('Arial') &&
+        parseFloat(getComputedStyle(document.querySelector('#login')).borderRadius)>=16;
     }`, gap, size), "login layout and readable typography")
 }
 func themeMedia(t *testing.T, page *rod.Page, theme string) {
@@ -141,28 +141,37 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	checked(t, page, contentEqual("#revision", "Build 10d95b1"), "build revision footer")
 	checked(t, page, `() => !document.querySelector('aside')`, "no obsolete sidebar")
 	checked(t, page, hidden("#context-info"), "no context on welcome screen")
-	// Test ordinary focus with a valid required value, not Oat's :user-invalid state.
+	// Starter questions populate the composer without sending or selecting a mode.
+	ready(t, page, `() => !document.querySelector('.idea').disabled`)
+	page.MustElement(".idea").MustClick()
+	checked(t, page, fieldValue("Warum ist der Himmel blau?"), "starter populates prompt")
+	checked(t, page, `() => [...document.querySelectorAll('.idea')].every(b=>b.disabled)`, "starters cannot overwrite a draft")
+	if n, subs, _ := f.stats(); n != 0 || len(subs) != 0 {
+		t.Fatal("starter unexpectedly sent a message")
+	}
+	// The rounded composer itself owns the input focus indicator.
 	fill(page, "Was ist Marmelade?")
 	if _, err := page.Eval(`() => {document.querySelector('#quick').focus(); document.querySelector('#content').focus()}`); err != nil {
 		t.Fatal(err)
 	}
-	focusColor := "rgb(40, 91, 120)"
+	focusColor := "rgb(49, 89, 179)"
 	if theme == "dark" {
-		focusColor = "rgb(147, 197, 223)"
+		focusColor = "rgb(197, 214, 255)"
 	}
 	checked(t, page, `() => document.querySelector('#content').validity.valid`, "valid prompt for focus test")
 	ready(t, page, fmt.Sprintf(`() => {
-      const style=getComputedStyle(document.querySelector('#content'));
-      return style.boxShadow!=='none' && style.borderTopColor===%q;
+      const style=getComputedStyle(document.querySelector('#composer'));
+      return style.outlineStyle==='solid' && style.borderTopColor===%q;
     }`, focusColor))
-	checked(t, page, `() => getComputedStyle(document.querySelector('#content')).outlineStyle==='none'`, "native Oat focus without duplicate outline")
+	checked(t, page, `() => getComputedStyle(document.querySelector('#content')).outlineStyle==='none'`, "composer focus without duplicate textarea outline")
 	checked(t, page, `() => {
        const headline=document.querySelector('.headline').getBoundingClientRect();
        const composer=document.querySelector('#composer').getBoundingClientRect();
        const style=getComputedStyle(document.querySelector('.headline'));
        return Math.abs(headline.left+headline.width/2-innerWidth/2)<2 &&
          Math.abs(composer.left+composer.width/2-innerWidth/2)<2 &&
-         composer.top-headline.bottom>=48 && style.textAlign==='start' && style.fontWeight==='500' &&
+         composer.top-headline.bottom>=48 && style.textAlign==='center' && style.fontWeight==='750' &&
+         parseFloat(getComputedStyle(document.querySelector('#composer')).borderRadius)>=20 &&
          style.backgroundImage.includes('headline-overlay.svg')
     }`, "welcome headline and composer layout")
 
@@ -221,12 +230,13 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	checked(t, page, `() => {
        const a=document.querySelector('.assistant .message-content'); const parent=a.closest('article');
        const code=a.querySelector('pre'); const table=a.querySelector('table');
-       return Math.abs(a.getBoundingClientRect().left+a.getBoundingClientRect().width/2 -
-                (parent.getBoundingClientRect().left+parent.getBoundingClientRect().width/2))<2 &&
+       return a.getBoundingClientRect().left-parent.getBoundingClientRect().left>=40 &&
+         a.getBoundingClientRect().right<=parent.getBoundingClientRect().right &&
+         !!parent.querySelector('.speaker img[src="/walter.svg"]') &&
          a.getBoundingClientRect().width<parent.getBoundingClientRect().width &&
-         getComputedStyle(a.querySelector('p')).fontFamily==='sans-serif' &&
+         getComputedStyle(a.querySelector('p')).fontFamily.includes('Arial') &&
          getComputedStyle(a.querySelector('p')).textAlign==='start' &&
-         getComputedStyle(a.querySelector('h2')).fontWeight==='500' &&
+         getComputedStyle(a.querySelector('h2')).fontWeight==='700' &&
          getComputedStyle(code.querySelector('code')).fontFamily==='monospace' &&
          getComputedStyle(code).whiteSpace==='pre' && code.scrollWidth>code.clientWidth &&
          getComputedStyle(table.querySelector('td')).whiteSpace==='nowrap'
@@ -235,36 +245,45 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	checked(t, page, visible("#thoughtful"), "thoughtful mode after response")
 	for _, scheme := range []string{"dark", "light"} {
 		themeMedia(t, page, scheme)
-		bg := "rgb(247, 245, 238)"
-		fg := "rgb(36, 41, 34)"
-		code := "rgb(237, 240, 235)"
-		dialog := bg
+		bg := "rgb(247, 248, 251)"
+		fg := "rgb(37, 39, 58)"
+		code := "rgb(237, 240, 247)"
+		dialog := "rgb(255, 255, 255)"
 		if scheme == "dark" {
-			bg = "rgb(0, 0, 0)"
-			fg = "rgb(236, 237, 228)"
-			code = "rgb(16, 21, 18)"
-			dialog = code
+			bg = "rgb(18, 20, 32)"
+			fg = "rgb(243, 242, 250)"
+			code = "rgb(35, 39, 58)"
+			dialog = "rgb(29, 32, 48)"
 		}
 		checked(t, page, fmt.Sprintf(`() => {
           const style=x=>getComputedStyle(document.querySelector(x));
           return style('body').backgroundColor===%q && style('.assistant').color===%q &&
             style('.assistant pre').backgroundColor===%q &&
             style('dialog').backgroundColor===%q &&
-            style('.error').backgroundColor===style('body').backgroundColor;
+            style('.error').backgroundColor===style('dialog').backgroundColor;
         }`, bg, fg, code, dialog), "light/dark responsive colors")
 	}
 	// An explicit theme must take precedence over the opposite OS preference.
 	for _, tc := range []struct{ scheme, opposite, background string }{
-		{"light", "dark", "rgb(247, 245, 238)"},
-		{"dark", "light", "rgb(0, 0, 0)"},
+		{"light", "dark", "rgb(247, 248, 251)"},
+		{"dark", "light", "rgb(18, 20, 32)"},
 	} {
 		themeMedia(t, page, tc.opposite)
-		if _, err := page.Eval(fmt.Sprintf(`() => {document.documentElement.dataset.theme=%q}`, tc.scheme)); err != nil {
+		page.MustElement(".theme-picker summary").MustClick()
+		if _, err := page.Eval(fmt.Sprintf(`() => {
+          const select=document.querySelector('#theme');select.value=%q;
+          select.dispatchEvent(new Event('change',{bubbles:true}));
+        }`, tc.scheme)); err != nil {
 			t.Fatal(err)
 		}
 		checked(t, page, fmt.Sprintf(`() => getComputedStyle(document.body).backgroundColor===%q &&
           getComputedStyle(document.documentElement).colorScheme===%q`, tc.background, tc.scheme), "explicit theme overrides system preference")
-		if _, err := page.Eval(`() => {delete document.documentElement.dataset.theme}`); err != nil {
+		checked(t, page, fmt.Sprintf(`() => localStorage.getItem('walter-theme')===%q`, tc.scheme), "explicit preference stored")
+		page.MustElement(".theme-picker summary").MustClick()
+		if _, err := page.Eval(`() => {
+          const select=document.querySelector('#theme');select.value='system';
+          select.dispatchEvent(new Event('change',{bubbles:true}));
+        }`); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -353,11 +372,11 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	if creations != 2 || len(submissions) != 4 {
 		t.Fatalf("retry duplicated conversation or submission: creations=%d subs=%v", creations, submissions)
 	}
-	for _, width := range []int{320, 390, 480, 768, 769} {
+	for _, width := range []int{320, 390, 480, 600, 601, 768, 769} {
 		setViewport(t, page, width, 844)
-		font := "17px"
-		if width > 768 {
-			font = "19px"
+		font := "16px"
+		if width > 600 {
+			font = "17px"
 		}
 		checked(t, page, fmt.Sprintf(`() => {
           const article=document.querySelector('.assistant .message-content');

@@ -21,7 +21,7 @@ var browserAssets = map[string]string{
 	"sse.js":               "text/javascript; charset=utf-8",
 	"style.css":            "text/css; charset=utf-8",
 	"oat.css":              "text/css; charset=utf-8",
-	"archaic-theme.css":    "text/css; charset=utf-8",
+	"theme.js":             "text/javascript; charset=utf-8",
 	"walter.svg":           "image/svg+xml",
 	"headline-overlay.svg": "image/svg+xml",
 }
@@ -36,7 +36,7 @@ type conversation struct {
 
 func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 	switch name {
-	case "empty-chat", "streaming-reply", "history-with-conversations":
+	case "empty-chat", "streaming-reply", "history-with-conversations", "completed-reply":
 	default:
 		return nil, fmt.Errorf("unknown fixture %q", name)
 	}
@@ -47,6 +47,16 @@ func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 	history := []conversation{
 		{ID: "00000000000000000000000000000001", Title: "Was ist Marmelade?", Thinking: "quick", UpdatedAt: "2026-10-16T18:00:00Z", Messages: []any{}},
 		{ID: "00000000000000000000000000000002", Title: "Ein Beispiel mit Tabellen", Thinking: "thoughtful", UpdatedAt: "2026-10-15T09:00:00Z", Messages: []any{}},
+	}
+	completed := conversation{
+		ID: "00000000000000000000000000000004", Title: "Wie funktioniert eine Webseite?",
+		Thinking: "thoughtful", UpdatedAt: "2026-10-16T18:00:00Z",
+		Messages: []any{
+			map[string]string{"role": "user", "content": "Wie funktioniert eine Webseite?", "status": "complete"},
+			map[string]string{"role": "assistant", "status": "complete", "content": "HTML und CSS bilden die Grundlage einer Webseite.",
+				"html": `<p>Eine Webseite besteht aus mehreren Bausteinen. <strong>HTML</strong> beschreibt den Inhalt, CSS das Aussehen.</p><h2>Die drei Bausteine</h2><table><thead><tr><th>Sprache</th><th>Aufgabe</th></tr></thead><tbody><tr><td>HTML</td><td>Inhalt und Struktur</td></tr><tr><td>CSS</td><td>Farben und Layout</td></tr><tr><td>JavaScript</td><td>Interaktion</td></tr></tbody></table><h2>Ein kleines Beispiel</h2><pre><code>&lt;h1&gt;Hallo Welt!&lt;/h1&gt;
+&lt;p&gt;Das ist meine erste Webseite.&lt;/p&gt;</code></pre><p>Du kannst eine HTML-Datei direkt in deinem Browser öffnen.</p>`},
+		},
 	}
 	var created atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,9 +77,14 @@ func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 		case r.URL.Path == "/api/conversations" && r.Method == http.MethodGet:
 			if name == "history-with-conversations" {
 				respond(http.StatusOK, history)
+			} else if name == "completed-reply" {
+				respond(http.StatusOK, []conversation{completed})
 			} else {
 				respond(http.StatusOK, []conversation{})
 			}
+			return
+		case r.URL.Path == "/api/conversations/"+completed.ID && r.Method == http.MethodGet && name == "completed-reply":
+			respond(http.StatusOK, completed)
 			return
 		case r.URL.Path == "/api/conversations" && r.Method == http.MethodPost && name == "streaming-reply":
 			if r.Header.Get("X-CSRF-Token") != "scenario-token" {

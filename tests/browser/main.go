@@ -33,7 +33,7 @@ func assertPage(page *rod.Page, expression, description string) error {
 	return nil
 }
 
-// All three scenario fixtures use the same transport implementation. Its exact
+// Scenario fixtures use the same transport implementation. Its exact
 // source and the per-scenario assertions form each versioned scenario contract.
 func suite() rodtest.Runner {
 	serve := func(name string) func(context.Context, string) (string, func(), error) {
@@ -91,6 +91,31 @@ func suite() rodtest.Runner {
 						return err
 					}
 					return shot("waiting")
+				},
+			},
+			"chat.reply.completed": {
+				Fixture: "completed-reply", ContractFiles: contract, Serve: serve("completed-reply"),
+				InitScript: "Math.random = () => 0.25;",
+				Run: func(_ context.Context, page *rod.Page, shot func(string) error) error {
+					if err := waitFor(page, readyStart); err != nil {
+						return err
+					}
+					page.MustElement("#history-link").MustClick()
+					if err := waitFor(page, `() => document.body.dataset.view === 'history' && document.querySelectorAll('#chats li').length === 1`); err != nil {
+						return err
+					}
+					page.MustElement("#chats li a").MustClick()
+					if err := waitFor(page, `() => document.body.dataset.view === 'conversation' && !document.querySelector('#content').disabled && !!document.querySelector('.assistant pre')`); err != nil {
+						return err
+					}
+					if err := assertPage(page, `() => document.querySelectorAll('.message').length === 2 &&
+                        !!document.querySelector('.assistant .speaker img') &&
+                        !!document.querySelector('.assistant table') &&
+                        !!document.querySelector('.assistant pre code') &&
+                        document.documentElement.scrollWidth <= innerWidth`, "completed answer with readable Markdown"); err != nil {
+						return err
+					}
+					return shot("ready")
 				},
 			},
 			"chat.history.populated": {
