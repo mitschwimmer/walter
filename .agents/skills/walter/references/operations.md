@@ -1,24 +1,10 @@
 # Installing Walter as an OCI container
 
-The image is `ghcr.io/mitschwimmer/walter`. GitHub Actions publishes it after the image job’s Go/parser checks
-pass on `main` and `v*` tags. Browser themes and Nix/race checks run independently;
-verify their success for the exact source commit before installing the image.
-Tag pushes do not trigger Nix checks, so use a verified identical main commit or
-run Nix checks manually. `workflow_dispatch` can also publish the selected ref’s
-SHA image (and `latest` when main is selected). Inspect the Actions run summary for the accepted
-image digest and pin `ghcr.io/mitschwimmer/walter@sha256:...` in deployment.
-Each publishing run also uploads a `walter-image` artifact containing
-`image.lock.json` (repository, digest, source revision, platform and run URL).
-The Digital Garden updater consumes this record from a successful main push.
-CI restores Go module/build caches and compiles once on the runner; a named
-Docker build context supplies that tested output to the same runtime Dockerfile.
-Superseded runs are cancelled. Plain `docker build .` remains a standalone
-source build. Images currently target linux/amd64. The container runs a static Go binary as
-UID/GID 65532, includes public CA trust for outbound OIDC HTTPS, and has no shell.
+Build and publish tested, immutable source revisions using the portable ko configuration. CI is invoked manually in an external Tekton installation; the infrastructure owner provisions the pipeline, registry credentials and deployment configuration. GitHub hosts source and reviews, not CI or image publication. Record both the exact source SHA and immutable image reference from the successful run before deployment.
 
 ## Daemonless OCI packaging
 
-The new portable `ko` path uses the same Go module and embedded web assets.
+The portable `ko` path uses the same Go module and embedded web assets.
 Use the pinned `ko` and Go versions in `nix develop`, or provision a pinned
 compatible toolchain in CI. Run tests against the exact clean source revision
 before publication. The destination registry is supplied externally:
@@ -33,23 +19,21 @@ ko build --bare --image-user=65532:65532 \
   --image-label="org.opencontainers.image.revision=$revision" .
 ```
 
-Record the returned immutable digest; no Docker daemon is required.
+Record the returned immutable digest (ko can return `repository:tag@sha256:...`; pin `repository@sha256:...` for deployment). No Docker daemon is required.
 For a credential-free packaging check, use
 `KO_DOCKER_REPO=example.invalid/walter ko build --bare --push=false --image-user=65532:65532 --oci-layout-path=/tmp/walter-oci .`
 with a fresh output directory. The pinned nonroot distroless base supplies
 public CA trust. The ko entrypoint is `/ko-app/walter`, rather than `/walter`.
 Its linked runtime defaults remain `0.0.0.0:8080` and `/data`; explicit
 environment values take precedence. The operator **must mount** a writable
-directory at `/data` for UID/GID 65532; unlike the old Dockerfile, the base
-does not provision that directory. The runtime needs neither a shell nor Nix.
-Keep the existing Dockerfile and GitHub publication path until migration;
-do not infer runtime acceptance from a successful packaging check.
+directory at `/data` for UID/GID 65532; the base image does not provision that directory. The runtime needs neither a shell nor Nix.
+The old GitHub OCI workflow and source Dockerfile have been retired. Do not infer runtime acceptance from a successful packaging check.
 
 ## Runtime contract
 
 | Setting | Container value |
 |---|---|
-| Process | `/ko-app/walter` (ko), `/walter` (legacy Dockerfile) |
+| Process | `/ko-app/walter` |
 | User | `65532:65532` |
 | Listen | `0.0.0.0:8080` inside the container |
 | Persistent writable directory | `/data`, owned by 65532, mode 0700 |
