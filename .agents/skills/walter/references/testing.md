@@ -37,7 +37,7 @@ Go builds derive the revision from VCS metadata; ko and Nix embed it with `-X ma
 
 ## Manual CI and separate native Nix validation
 
-Submit the exact candidate and baseline commits through the operator's external Tekton installation. A successful run must include module verification, Go tests, vet, race detection, static build, real Chromium UI/SSE tests, browser-module vet and visual captures/self-comparison. Release runs repeat those checks for the reviewed ref and return the source SHA and immutable image digest. GitHub no longer runs CI; keep the evidence with the reviewed change.
+Submit the exact candidate and baseline commits through the operator's external Tekton installation (see [operator entry points](operations.md#installing-walter-as-an-oci-container)). A successful run must include module verification, Go tests, vet, race detection, static build, real Chromium UI/SSE tests, browser-module vet and visual captures/self-comparison. Release runs repeat those checks for the reviewed ref and return the source SHA and immutable image digest. GitHub no longer runs CI; keep the evidence with the reviewed change.
 
 The native Nix package remains independent of the fast CI path. In a clean checkout run:
 
