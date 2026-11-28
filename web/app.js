@@ -390,7 +390,12 @@ $('composer').onsubmit = async e => {
         if (data.phase === 'prefill') status.textContent = `Prefill: ${data.percent ?? 0}%`;
         else if (data.phase === 'thinking') status.textContent = data.tokens > 0 ? `Denkt nach … · ${data.tokens} Tokens erzeugt` : 'Denkt nach …';
       }
-      else if (name === 'error') throw new WalterError('reply_failed', 'Walter konnte seine Antwort nicht beenden. Bitte öffne das Gespräch erneut.', response);
+      else if (name === 'error') {
+        // Keep the controlled server message, in particular a final-save failure.
+        const failure = new WalterError('reply_failed', 'Walter konnte seine Antwort nicht beenden. Bitte öffne das Gespräch erneut.', response);
+        if (failure.requestID && typeof data?.error === 'string') failure.message = data.error;
+        throw failure;
+      }
       else if (name === 'done') complete = true;
     });
     if (!complete) throw new WalterError('stream_interrupted', 'Die Verbindung wurde unterbrochen. Bitte öffne das Gespräch erneut.', response);
