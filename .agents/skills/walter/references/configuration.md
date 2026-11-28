@@ -168,8 +168,19 @@ endpoint. No OpenAI Responses or Anthropic Messages adapter is included.
   contains no upstream body or prompt. Delivery of `done` can itself fail after
   persistence; reopening the chat is authoritative. If persistence fails after
   generation, the pending record remains; inspect storage and restart recovery.
+- Each SSE event has a 15-second write/flush deadline, cleared after the event
+  even on failure. Waiting for inference is governed by the generation timeout.
 - A lost network response can leave submission acceptance uncertain. The browser
   never automatically retries a message; reopen the chat before resubmitting.
+- Walter emits its locally generated flight-recorder ID as
+  `X-Walter-Request-ID` and its revision as `X-Walter-Build` before writing
+  response headers. A failed stream retains these values in the browser even
+  if the connection closes before the final event. If no headers arrive, the
+  request ID and HTTP status are unavailable; the site build is a fallback.
+  User-facing errors use German messages and a copyable diagnostic report
+  with fixed error code, build, request ID, HTTP status and UTC time. Never
+  include raw exceptions, request URLs, conversation text or credentials in
+  the copied report. Explicit Stop does not show a failure notification.
 - Assistant Markdown is rendered by Goldmark on the server, including tables,
   code blocks, headings, lists and links. Raw HTML, custom attributes and unsafe
   URLs stay disabled. Streaming and reopened replies use the same renderer;

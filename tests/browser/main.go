@@ -100,6 +100,33 @@ func suite() rodtest.Runner {
 					return shot("waiting")
 				},
 			},
+			"chat.reply.interrupted": {
+				Fixture: "interrupted-reply", ContractFiles: contract, Serve: serve("interrupted-reply"),
+				InitScript: "Math.random = () => 0.25; Date.now = () => Date.parse('2026-10-16T18:00:00Z');",
+				Run: func(_ context.Context, page *rod.Page, shot func(string) error) error {
+					if err := waitView(page, "start"); err != nil {
+						return err
+					}
+					page.MustElement("#content").MustInput("Was ist Marmelade?")
+					page.MustElement("#thoughtful").MustClick()
+					if err := waitFor(page, `() => document.body?.dataset.view === 'conversation' &&
+                        document.querySelector('#content')?.disabled === false &&
+                        !document.querySelector('#error').hidden &&
+                        document.querySelector('.assistant small')?.textContent === 'Abgebrochen'`); err != nil {
+						return err
+					}
+					if err := assertPage(page, `() => document.querySelector('#error-message').textContent.startsWith('Die Verbindung wurde unterbrochen.') &&
+                        document.querySelector('#error-details').textContent.includes('stream_interrupted') &&
+                        document.querySelector('#error-details').textContent.includes('00000000000000000000000000000042') &&
+                        document.querySelector('#error-details').textContent.includes('Build: 10d95b1') &&
+                        document.querySelector('#error-details').textContent.includes('HTTP-Status: 200') &&
+                        document.querySelector('#copy-error').getBoundingClientRect().width > 0 &&
+                        document.documentElement.scrollWidth <= innerWidth`, "interrupted answer and safe diagnostic report"); err != nil {
+						return err
+					}
+					return shot("error")
+				},
+			},
 			"chat.reply.completed": {
 				Fixture: "completed-reply", ContractFiles: contract, Serve: serve("completed-reply"),
 				InitScript: "Math.random = () => 0.25;",

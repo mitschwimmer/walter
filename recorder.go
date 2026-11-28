@@ -238,9 +238,13 @@ func (w *recordedResponse) FlushError() error {
 func (w *recordedResponse) Flush() { _ = w.FlushError() }
 
 func recordRequests(next http.Handler, output slog.Handler) http.Handler {
+	build := buildRevision()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Generate correlation locally; never trust a request header or log a URL.
-		output := output.WithAttrs([]slog.Attr{slog.String("request_id", opaqueID())})
+		id := opaqueID()
+		w.Header().Set("X-Walter-Request-ID", id)
+		w.Header().Set("X-Walter-Build", build)
+		output := output.WithAttrs([]slog.Attr{slog.String("request_id", id)})
 		recorder := &requestRecorder{output: output}
 		logger := slog.New(&requestHandler{recorder: recorder, output: output})
 		ctx := context.WithValue(r.Context(), requestLogKey{}, logger)

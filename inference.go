@@ -21,6 +21,8 @@ func event(w http.ResponseWriter, name string, v any) error {
 	}
 	rc := http.NewResponseController(w)
 	_ = rc.SetWriteDeadline(time.Now().Add(15 * time.Second))
+	// Bound the write and flush, not the time spent waiting for inference.
+	defer rc.SetWriteDeadline(time.Time{})
 	if _, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, b); err != nil {
 		return err
 	}

@@ -84,11 +84,21 @@ func TestRequestRecorderLifecycle(t *testing.T) {
 				defer cancel()
 				ctx = expired
 			}
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest("GET", "/SECRET?token=SECRET", nil).WithContext(ctx)
+			request.Header.Set("X-Walter-Request-ID", "untrusted")
 			var recovered any
 			func() {
 				defer func() { recovered = recover() }()
-				handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/SECRET?token=SECRET", nil).WithContext(ctx))
+				handler.ServeHTTP(response, request)
 			}()
+			responseID := response.Header().Get("X-Walter-Request-ID")
+			if len(responseID) != 32 || responseID == "untrusted" {
+				t.Fatalf("invalid response request ID: %q", responseID)
+			}
+			if response.Header().Get("X-Walter-Build") != buildRevision() {
+				t.Fatal("missing response build revision")
+			}
 			if tc.name == "panic" && recovered != http.ErrAbortHandler {
 				t.Fatalf("panic policy changed: %v", recovered)
 			}
@@ -104,6 +114,9 @@ func TestRequestRecorderLifecycle(t *testing.T) {
 			records := diagnosticRecords(t, &output)
 			summaries := 0
 			id := records[0]["request_id"]
+			if id != responseID {
+				t.Fatalf("response request ID %q differs from log ID %v", responseID, id)
+			}
 			for _, record := range records {
 				if record["request_id"] != id || id == "" {
 					t.Fatal("lost correlation", records)
@@ -243,6 +256,7 @@ type diagnosticWriter struct {
 	writeError, flushError error
 	short                  bool
 	deadline               time.Time
+	deadlines              []time.Time
 	failDone               bool
 }
 
@@ -258,6 +272,7 @@ func (w *diagnosticWriter) Write(data []byte) (int, error) {
 func (w *diagnosticWriter) FlushError() error { return w.flushError }
 func (w *diagnosticWriter) SetWriteDeadline(deadline time.Time) error {
 	w.deadline = deadline
+	w.deadlines = append(w.deadlines, deadline)
 	return nil
 }
 
@@ -301,6 +316,27 @@ func TestRecorderResponseController(t *testing.T) {
 			}
 			if records[len(records)-1]["failure_reason"] != reason {
 				t.Fatal(records)
+			}
+		})
+	}
+}
+
+func TestSSEWriteDeadlineReset(t *testing.T) {
+	for _, mode := range []string{"success", "write", "flush"} {
+		t.Run(mode, func(t *testing.T) {
+			writer := &diagnosticWriter{ResponseRecorder: httptest.NewRecorder()}
+			switch mode {
+			case "write":
+				writer.writeError = io.ErrClosedPipe
+			case "flush":
+				writer.flushError = io.ErrClosedPipe
+			}
+			err := event(writer, "snapshot", map[string]string{"html": "<p>Hallo</p>"})
+			if (err != nil) != (mode != "success") {
+				t.Fatalf("event error = %v", err)
+			}
+			if len(writer.deadlines) != 2 || writer.deadlines[0].IsZero() || !writer.deadlines[1].IsZero() {
+				t.Fatalf("expected a bounded write followed by deadline reset, got %v", writer.deadlines)
 			}
 		})
 	}

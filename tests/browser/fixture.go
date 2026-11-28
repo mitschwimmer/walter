@@ -36,7 +36,7 @@ type conversation struct {
 
 func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 	switch name {
-	case "empty-chat", "streaming-reply", "history-with-conversations", "completed-reply":
+	case "empty-chat", "streaming-reply", "history-with-conversations", "completed-reply", "interrupted-reply":
 	default:
 		return nil, fmt.Errorf("unknown fixture %q", name)
 	}
@@ -58,6 +58,11 @@ func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 &lt;p&gt;Das ist meine erste Webseite.&lt;/p&gt;</code></pre><p>Du kannst eine HTML-Datei direkt in deinem Browser öffnen.</p>`},
 		},
 	}
+	interrupted := sample
+	interrupted.Messages = []any{
+		map[string]string{"role": "user", "content": "Was ist Marmelade?", "status": "complete"},
+		map[string]string{"role": "assistant", "content": "Marmelade ist ein süßer Aufstrich.", "html": "<p>Marmelade ist ein süßer Aufstrich.</p>", "status": "cancelled"},
+	}
 	var created atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -69,7 +74,11 @@ func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 		}
 		switch {
 		case r.URL.Path == "/api/site":
-			respond(http.StatusOK, map[string]string{})
+			if name == "interrupted-reply" {
+				respond(http.StatusOK, map[string]string{"revision": "10d95b1"})
+			} else {
+				respond(http.StatusOK, map[string]string{})
+			}
 			return
 		case r.URL.Path == "/api/session":
 			respond(http.StatusOK, map[string]string{"csrf": "scenario-token"})
@@ -86,7 +95,10 @@ func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 		case r.URL.Path == "/api/conversations/"+completed.ID && r.Method == http.MethodGet && name == "completed-reply":
 			respond(http.StatusOK, completed)
 			return
-		case r.URL.Path == "/api/conversations" && r.Method == http.MethodPost && name == "streaming-reply":
+		case r.URL.Path == "/api/conversations/"+sample.ID && r.Method == http.MethodGet && name == "interrupted-reply" && created.Load():
+			respond(http.StatusOK, interrupted)
+			return
+		case r.URL.Path == "/api/conversations" && r.Method == http.MethodPost && (name == "streaming-reply" || name == "interrupted-reply"):
 			if r.Header.Get("X-CSRF-Token") != "scenario-token" {
 				respond(http.StatusForbidden, map[string]string{"error": "CSRF token missing"})
 				return
@@ -99,7 +111,7 @@ func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 			created.Store(true)
 			respond(http.StatusCreated, sample)
 			return
-		case r.URL.Path == "/api/conversations/"+sample.ID+"/messages" && r.Method == http.MethodPost && name == "streaming-reply" && created.Load():
+		case r.URL.Path == "/api/conversations/"+sample.ID+"/messages" && r.Method == http.MethodPost && (name == "streaming-reply" || name == "interrupted-reply") && created.Load():
 			if r.Header.Get("X-CSRF-Token") != "scenario-token" {
 				respond(http.StatusForbidden, map[string]string{"error": "CSRF token missing"})
 				return
@@ -110,6 +122,15 @@ func fixtureServer(name, webRoot string) (*httptest.Server, error) {
 				return
 			}
 			w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+			if name == "interrupted-reply" {
+				w.Header().Set("X-Walter-Request-ID", "00000000000000000000000000000042")
+				w.Header().Set("X-Walter-Build", "10d95b1")
+				// Return fewer bytes than promised, as with a broken HTTP stream.
+				w.Header().Set("Content-Length", "4096")
+				_, _ = io.WriteString(w, "event: start\ndata: {}\n\nevent: snapshot\ndata: {\"html\":\"<p>Marmelade ist ein süßer Aufstrich.</p>\"}\n\n")
+				_ = http.NewResponseController(w).Flush()
+				return
+			}
 			_, _ = io.WriteString(w, "event: start\ndata: {}\n\n")
 			if flusher, ok := w.(http.Flusher); ok {
 				flusher.Flush()

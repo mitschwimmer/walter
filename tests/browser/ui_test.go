@@ -352,6 +352,7 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	}
 	checked(t, page, `() => document.querySelector('.assistant:last-of-type small')?.textContent==='Abgebrochen' ||
         [...document.querySelectorAll('.assistant')].at(-1)?.querySelector('small')?.textContent==='Abgebrochen'`, "aborted response is persisted")
+	checked(t, page, hidden("#error"), "intentional stop does not show a failure notification")
 	page.MustElement("#delete").MustClick()
 	page.MustElement("#delete-dialog button[value=cancel]").MustClick()
 	if _, _, n := f.stats(); n != 1 {
