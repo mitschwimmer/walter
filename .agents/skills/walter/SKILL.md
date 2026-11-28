@@ -14,7 +14,7 @@ Keep one Go process and the current cohesive `main` package; extract boundaries 
 - Read `store.go` for per-user JSON. Keep one writer per data directory, atomic replacement, file/directory syncing, and recovery of pending replies before serving traffic.
 - Read `inference.go`, `context.go` and `markdown.go` for upstream SSE, optional token counts and rendering. Preserve prompt/credential redirect rejection, separated reasoning disposal, cancellation, partial-answer persistence and bounded handoffs. Join request goroutines before returning.
 - Read `diagnostics.go` and `recorder.go` before adding logs. Use `requestLogger(ctx)` and fixed diagnostic messages/attributes; never log prompts, tokens, URLs, user IDs or arbitrary error strings. Use `logFailure` at handling boundaries, including handled dependency failures.
-- Read `web/app.js`, `web/sse.js`, `web/index.html`, `web/oat.css`, `web/archaic-theme.css` and `web/style.css` for the German UI. Oat v1.0.0's vendored CSS subset provides native control styles; the canonical Archaic Heritage v0.4 stylesheet comes next, followed by Walter-specific layout. Keep OLED-black dark mode, shared spacing tokens, sans-serif prose, 500-weight headings and Oat's native focus treatment. Keep frontend assets embedded and free of a build step. Use the lowercase walter wordmark in the masthead; preserve Walter's original horse SVG and layered colorful headline on the welcome/start screen. Render user prompts as quiet chat blocks and server-rendered assistant Markdown as centered, narrow articles; code and tables scroll horizontally rather than wrapping. Both `schnell` and `bedacht` are explicit submit buttons; Enter inserts a newline and must not submit implicitly. Store original Markdown, render assistant HTML on the server, and keep user text plain.
+- Read `web/app.js`, `web/sse.js`, `web/index.html`, `web/theme.js`, `web/oat.css` and `web/style.css` for the German UI. Walter has an independent visual identity; see [Walter design](references/design.md). Oat v1.0.0 remains a vendored technical base, not a shared visual theme. Keep frontend assets embedded and free of a build step. Preserve Walter's original horse SVG and layered colorful headline. Both `schnell` and `bedacht` are explicit submit buttons; Enter inserts a newline and must not submit implicitly. Starter questions populate an empty input without sending or replacing a draft. Store original Markdown, render assistant HTML on the server, and keep user text plain. Code and tables scroll horizontally rather than wrapping.
 - Keep API and stored JSON compatible with existing clients and conversations. `done` means a complete reply was synced; a lost response requires reopening before retrying.
 
 ## Develop and verify
@@ -33,6 +33,14 @@ Use real HTTP fixtures and temporary storage with the standard `testing` package
 Report checks not run; fixture tests do not establish live OIDC/inference or proxy acceptance.
 
 Build the native release using `nix build`; inspect `result/bin/walter`. Run `nix flake check` and `nix fmt -- flake.nix` for packaging changes. Keep `flake.lock` pinned; update `vendorHash` through Nix when Go dependencies change. Do not decrypt secrets in Nix or commit private keys.
+
+## Branches and releases
+
+Keep main as the stable release and visual regression baseline. Integrate
+feature and fix PRs into develop; promote reviewed develop to main with a
+release PR. Never merge unverified changes into main merely to update a
+baseline. The CI candidate is the proposed merge revision; the baseline is
+the exact main checkout (the PR base SHA for release PRs). Record both SHAs.
 
 ## Make common changes
 

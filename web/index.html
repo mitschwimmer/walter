@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f5ee" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f8fb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121420" media="(prefers-color-scheme: dark)">
   <title>Walter · Frag’s Pferd.</title>
   <link rel="icon" href="/walter.svg" type="image/svg+xml">
+  <script src="/theme.js"></script>
   <link rel="stylesheet" href="/oat.css">
-  <link rel="stylesheet" href="/archaic-theme.css">
   <link rel="stylesheet" href="/style.css">
   <script type="module" src="/app.js"></script>
 </head>
@@ -16,14 +16,28 @@
   <a class="skip-link" href="#main">Zum Inhalt</a>
   <header class="site-header">
     <a id="home" class="brand" href="#" aria-label="Walter – neue Frage"><img src="/walter.svg" alt="" width="110" height="110">walter</a>
-    <nav id="account-menu" aria-label="Menü" hidden>
-      <a id="new" href="#" hidden>Neue Frage</a>
-      <a id="history-link" href="#historie">Historie</a>
-      <button id="logout" type="button">Abmelden</button>
-    </nav>
+    <div class="header-actions">
+      <nav id="account-menu" aria-label="Menü" hidden>
+        <a id="new" href="#" aria-label="Neue Frage" title="Neue Frage" hidden><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span class="nav-text">Neue Frage</span></a>
+        <a id="history-link" href="#historie" aria-label="Historie" title="Historie"><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 9 9M3 12V5m0 7h7M12 7v5l3 2"/></svg><span class="nav-text">Historie</span></a>
+        <button id="logout" type="button" aria-label="Abmelden" title="Abmelden"><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5m5 5H3m9-9h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg><span class="nav-text">Abmelden</span></button>
+      </nav>
+      <details class="theme-picker">
+        <summary aria-label="Darstellung" title="Darstellung"><svg class="icon moon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472 6.5 6.5 0 0 0 9.473 9.472Z"/></svg><svg class="icon sun" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg></summary>
+        <div class="theme-options">
+          <label for="theme">Darstellung</label>
+          <select id="theme">
+            <option value="system">System</option>
+            <option value="light">Hell</option>
+            <option value="dark">Dunkel</option>
+          </select>
+        </div>
+      </details>
+    </div>
   </header>
   <main id="main" tabindex="-1">
     <h1 class="headline">Frag’s Pferd.<br>Walter weiß es.</h1>
+    <p class="welcome-subtitle">Die Welt ist voller Fragen. Stell mir deine.</p>
     <p id="loading" class="muted" role="status">Walter wird geladen …</p>
     <section id="login" class="login-panel" aria-labelledby="login-title" hidden>
       <h2 id="login-title">Deine nächste Frage?</h2>
@@ -31,28 +45,38 @@
       <a class="button" href="/auth/login">Anmelden</a>
     </section>
     <section id="chat" aria-label="Gespräch mit Walter" hidden>
-      <header class="conversation-heading" hidden><h1 id="conversation-title">Neue Frage</h1><button id="delete" class="ghost" data-variant="danger" type="button">Gespräch löschen</button></header>
+      <header class="conversation-heading" hidden><h1 id="conversation-title">Neue Frage</h1><button id="delete" class="round-action" type="button" aria-label="Gespräch löschen" title="Gespräch löschen"><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6m5 4v7m4-7v7"/></svg></button></header>
       <div id="messages" role="log" aria-label="Nachrichten" aria-live="off"></div>
       
       <form id="composer">
         <div id="prompt-input">
-          <label id="composer-label" for="content">Deine Frage</label>
+          <label id="composer-label" class="sr-only" for="content">Deine Frage</label>
           <textarea id="content" rows="3" maxlength="16000" placeholder="Was möchtest du wissen?" aria-describedby="composer-help" required disabled></textarea>
           <p id="composer-help" class="sr-only">Enter fügt einen Zeilenumbruch ein. Wähle für jede Frage schnell oder bedacht, um sie zu senden.</p>
         </div>
         <div class="composer-actions">
           <span id="activity" role="status"></span>
           <button id="stop" class="outline" type="button" hidden>Antwort stoppen</button>
-          <button id="quick" type="submit" name="thinking" value="quick" title="Schnell antworten" disabled>schnell</button>
-          <button id="thoughtful" class="outline" type="submit" name="thinking" value="thoughtful" title="Bedacht antworten" disabled>bedacht</button>
+          <button id="quick" type="submit" name="thinking" value="quick" title="Schnell antworten" disabled><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z"/></svg><span>Schnell</span></button>
+          <button id="thoughtful" class="outline" type="submit" name="thinking" value="thoughtful" title="Bedacht antworten" disabled><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12M7 2v4a5 5 0 0 0 2 4l3 2-3 2a5 5 0 0 0-2 4v4M17 2v4a5 5 0 0 1-2 4l-3 2 3 2a5 5 0 0 1 2 4v4"/></svg><span>Bedacht</span></button>
         </div>
         <p id="context-info" class="muted" title="Gespräch einschließlich Systemprompt und nächster Nachrichtenrahmen, ohne deine nächste Frage." hidden></p>
         <p id="context-full" class="muted" hidden>Kontext voll. <a href="#" class="text-link">Neue Frage starten</a></p>
       </form>
+      <section class="ideas" aria-labelledby="ideas-title">
+        <h2 id="ideas-title">Keine Idee? Frag doch mal …</h2>
+        <div class="idea-grid">
+          <button class="idea" type="button" data-question="Warum ist der Himmel blau?" disabled><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12ZM19 4C16 1 8 7 4 13s-1 9 2 7 9-7 13-13 3-5 0-3Z"/></svg><span>Warum ist der Himmel blau?</span><svg class="icon arrow" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg></button>
+          <button class="idea" type="button" data-question="Wie funktioniert das Internet?" disabled><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6-6 6 6 6m8-12 6 6-6 6M14 4l-4 16"/></svg><span>Wie funktioniert das Internet?</span><svg class="icon arrow" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg></button>
+          <button class="idea" type="button" data-question="Hilf mir, eine Geschichte zu schreiben." disabled><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3ZM5 3v4M3 5h4"/></svg><span>Hilf mir, eine Geschichte zu schreiben.</span><svg class="icon arrow" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg></button>
+        </div>
+      </section>
+      <p class="answer-note">Walter kann sich irren. Prüfe wichtige Antworten.</p>
       <p id="draft-hint" class="muted" hidden>Deine Frage bleibt im Eingabefeld. Prüfe das Gespräch vor einem erneuten Senden.</p>
     </section>
     <section id="history" aria-labelledby="history-title" hidden>
-      <header class="view-heading"><h1 id="history-title" tabindex="-1">Historie</h1><a href="#" class="text-link">Neue Frage</a></header>
+      <header class="view-heading"><h1 id="history-title" tabindex="-1">Deine Gespräche</h1><a href="#" class="text-link" aria-label="Neue Frage" title="Neue Frage"><svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span class="nav-text">Neue Frage</span></a></header>
+      <p class="history-intro">Hier kannst du einfach weiterfragen.</p>
       <p id="history-status" class="muted" role="status"></p>
       <ul id="chats" class="conversation-list"></ul>
     </section>

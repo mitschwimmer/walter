@@ -38,6 +38,20 @@ function view(name) {
   else $('history-link').removeAttribute('aria-current');
   document.title = name === 'history' ? 'Historie · Walter' : current ? `${current.title} · Walter` : 'Walter · Frag’s Pferd.';
 }
+// Static UI icons; message content continues to use the restricted server renderer.
+function uiIcon(pathData) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  for (const [name, value] of Object.entries({
+    class: 'icon', 'aria-hidden': 'true', focusable: 'false', viewBox: '0 0 24 24',
+    fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8',
+    'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+  })) svg.setAttribute(name, value);
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('d', pathData);
+  svg.append(path);
+  return svg;
+}
 function bubble(m) {
   const section = document.createElement(m.role === 'assistant' ? 'article' : 'section');
   section.className = `message ${m.role}`;
@@ -58,6 +72,17 @@ function bubble(m) {
     status.textContent = 'Warte auf das Modell …';
     loader.append(status);
     body.append(loader);
+  }
+  if (m.role === 'assistant') {
+    const speaker = document.createElement('header');
+    speaker.className = 'speaker';
+    speaker.setAttribute('aria-hidden', 'true');
+    const horse = document.createElement('img');
+    horse.src = '/walter.svg';
+    horse.alt = '';
+    horse.width = horse.height = 40;
+    speaker.append(horse, 'Walter');
+    section.append(speaker);
   }
   section.append(body);
   if (m.status !== 'complete' && m.status !== 'pending') {
@@ -98,6 +123,22 @@ function updateContext(unavailable) {
     : 'Kontext: unbekannt';
   $('context-full').hidden = unavailable || !contextFull('quick') || !contextFull('thoughtful');
 }
+function updateIdeas() {
+  const input = $('content');
+  document.querySelectorAll('.idea').forEach(button => {
+    button.disabled = input.disabled || input.value.trim() !== '';
+  });
+}
+$('content').addEventListener('input', updateIdeas);
+document.querySelectorAll('.idea').forEach(button => {
+  button.addEventListener('click', () => {
+    const input = $('content');
+    if (input.disabled || input.value.trim() || document.body.dataset.view !== 'start') return;
+    input.value = button.dataset.question;
+    updateIdeas();
+    input.focus();
+  });
+});
 function busy(value) {
   const unavailable = value || recovering || !!current?.messages.some(m => m.status === 'pending');
   const full = contextFull('quick') && contextFull('thoughtful');
@@ -119,6 +160,7 @@ function busy(value) {
   $('composer').setAttribute('aria-busy', String(unavailable));
   $('activity').textContent = value ? 'Walter antwortet …' : recovering ? 'Gespräch wird geladen …' : '';
   $('activity').classList.toggle('sr-only', value);
+  updateIdeas();
 }
 const dates = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
 async function refreshHistory(version) {
@@ -138,11 +180,12 @@ async function refreshHistory(version) {
     date.dateTime = c.updated_at;
     const updated = new Date(c.updated_at);
     date.textContent = Number.isNaN(updated.valueOf()) ? '' : dates.format(updated);
-    link.append(title, date);
+    link.append(uiIcon('M21 11.5a8.5 8.5 0 0 1-8.5 8.5H12a9 9 0 0 1-4-.9L3 21l1.9-5a9 9 0 0 1-.9-4v-.5A8.5 8.5 0 0 1 12.5 3h.5a8.5 8.5 0 0 1 8 8.5Z'), title, date);
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.className = 'delete-conversation';
-    remove.textContent = 'Löschen';
+    remove.className = 'delete-conversation round-action';
+    remove.append(uiIcon('M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6m5 4v7m4-7v7'));
+    remove.title = 'Gespräch löschen';
     remove.setAttribute('aria-label', `Löschen: ${c.title}`);
     remove.disabled = !!controller || recovering;
     remove.onclick = () => confirmDelete(c);

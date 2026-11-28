@@ -1,0 +1,16 @@
+{
+  "id": "chat.reply.completed",
+  "description": "Reopened completed conversation with Markdown, table and code",
+  "fixture": "completed-reply",
+  "checkpoints": [
+    "ready"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}
