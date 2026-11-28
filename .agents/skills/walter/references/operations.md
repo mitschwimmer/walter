@@ -2,6 +2,8 @@
 
 Build and publish tested, immutable source revisions using the portable ko configuration. CI is invoked manually in an external Tekton installation; the infrastructure owner provisions the pipeline, registry credentials and deployment configuration. GitHub hosts source and reviews, not CI or image publication. Record both the exact source SHA and immutable image reference from the successful run before deployment.
 
+For the maintainer's homelab, use the [GitOps operator entry points](https://github.com/mitschwimmer/gitops/blob/main/docs/capabilities/trusted-image-publication/README.md#betrieb) for candidate tests and develop/main releases. The infrastructure repository owns the executable commands, cluster selection, task identities and pod templates. Do not copy deployment commands into Walter's flake or maintenance documentation.
+
 ## Daemonless OCI packaging
 
 The portable `ko` path uses the same Go module and embedded web assets.
