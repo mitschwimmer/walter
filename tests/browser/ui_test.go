@@ -71,7 +71,12 @@ func contentEqual(selector, value string) string {
 func countEqual(selector string, n int) string {
 	return fmt.Sprintf(`() => document.querySelectorAll(%q).length === %d`, selector, n)
 }
-func view(name string) string { return fmt.Sprintf(`() => document.body.dataset.view === %q`, name) }
+func readyView(t *testing.T, page *rod.Page, name string) {
+	t.Helper()
+	if err := waitView(page, name); err != nil {
+		t.Fatal("UI readiness: ", err)
+	}
+}
 func fieldValue(value string) string {
 	return fmt.Sprintf(`() => document.querySelector('#content')?.value === %q`, value)
 }
@@ -133,10 +138,10 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	}
 
 	// Login request held: authentic loading view until the fixture releases it.
-	ready(t, page, view("loading"))
+	readyView(t, page, "loading")
 	checked(t, page, hidden("#login"), "login hidden during session loading")
 	close(f.sessionHold)
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 	ready(t, page, `() => document.activeElement?.id==='content'`)
 	checked(t, page, contentEqual("#revision", "Build 10d95b1"), "build revision footer")
 	checked(t, page, `() => !document.querySelector('aside')`, "no obsolete sidebar")
@@ -178,7 +183,7 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	// Hold the first assistant reply. Every progress phase must be visible.
 	holdAnswer := f.holdNextAnswer()
 	page.MustElement("#thoughtful").MustClick()
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	ready(t, page, visible(".response-loader"))
 	checked(t, page, contentEqual(".response-status", "Warte auf das Modell …"), "pending reply status")
 	checked(t, page, hidden("#content"), "composer hidden during inference")
@@ -215,7 +220,7 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	if _, err := page.Eval(`() => {document.querySelector('#history-link').dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));return true}`); err != nil {
 		t.Fatal(err)
 	}
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	close(holdReload)
 	f.clearReload()
 	idle(t, page)
@@ -302,39 +307,39 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	// Both context-unknown and one/both full capacity modes.
 	f.setContext(false, 4096, 8192)
 	page.MustReload()
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	idle(t, page)
 	checked(t, page, contentEqual("#context-info", "Kontext: unbekannt"), "unknown context")
 	checked(t, page, `() => !document.querySelector('#quick').disabled && !document.querySelector('#thoughtful').disabled`, "missing context must not block submission")
 	f.setContext(true, 16384, 8192)
 	page.MustReload()
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	idle(t, page)
 	checked(t, page, `() => document.querySelector('#quick').disabled && !document.querySelector('#thoughtful').disabled`, "individual full context disables only its mode")
 	f.setContext(true, 16384, 16384)
 	page.MustReload()
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	ready(t, page, visible("#context-full"))
 	checked(t, page, `() => document.querySelector('#quick').disabled && document.querySelector('#thoughtful').disabled && !document.querySelector('#logout').disabled`, "full context and logout")
 	setViewport(t, page, 320, 844)
 	page.MustElement("#context-full a").MustClick()
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 	ready(t, page, `() => document.activeElement?.id==='content'`)
 	f.setContext(true, 4096, 8192)
 	setViewport(t, page, 1071, 1579)
 	page.MustNavigate(originalURL)
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	idle(t, page)
 
 	// History links, deep links, interruption, cancellation and deletion.
 	page.MustElement("#history-link").MustClick()
-	ready(t, page, view("history"))
+	readyView(t, page, "history")
 	ready(t, page, countEqual("#chats a", 1))
 	checked(t, page, `() => document.querySelector('#chats time')?.textContent.includes('16. Oktober 2026')`, "localized history timestamp")
 	page.MustElement("#chats a").MustClick()
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	page.MustReload()
-	ready(t, page, view("conversation"))
+	readyView(t, page, "conversation")
 	checked(t, page, countEqual(".message", 4), "deep-link reload preserves responses")
 	fill(page, "Noch eine Frage")
 	page.MustElement("#thoughtful").MustClick()
@@ -354,13 +359,13 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	}
 	page.MustElement("#delete").MustClick()
 	page.MustElement("#confirm-delete").MustClick()
-	ready(t, page, view("history"))
+	readyView(t, page, "history")
 	ready(t, page, `() => document.querySelector('#history-status')?.textContent.startsWith('Hier findest')`)
 	if _, _, n := f.stats(); n != 0 {
 		t.Fatalf("delete did not remove conversation: %d", n)
 	}
 	page.MustElement("#new").MustClick()
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 	f.setRejectNext()
 	fill(page, "Frage bleibt erhalten")
 	page.MustElement("#quick").MustClick()
@@ -387,12 +392,12 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 		}
 	}
 	page.MustElement("#new").MustClick()
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 	for _, width := range []int{320, 390} {
 		setViewport(t, page, width, 844)
 	}
 	page.MustElement("#history-link").MustClick()
-	ready(t, page, view("history"))
+	readyView(t, page, "history")
 	retained := f.lastConversation().ID
 	removable := f.createHistoryItem("Nur dieses Gespräch")
 	page.MustElement("#history-link").MustClick()
@@ -425,16 +430,16 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	page.MustElement("#confirm-delete").MustClick()
 	ready(t, page, `() => document.querySelector('#history-status')?.textContent.startsWith('Hier findest')`)
 	page.MustElement("#history .text-link").MustClick()
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 	page.MustElement("#home").MustClick()
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 
 	// Expiration and explicit logout both clear private data and recover login.
 	page.MustElement("#history-link").MustClick()
-	ready(t, page, view("history"))
+	readyView(t, page, "history")
 	f.setExpire()
 	page.MustElement("#history-link").MustClick()
-	ready(t, page, view("login"))
+	readyView(t, page, "login")
 	checked(t, page, hidden("#account-menu"), "session expiry hides account menu")
 	checked(t, page, countEqual(".message", 0), "expiry clears conversation")
 	for _, width := range []int{320, 390} {
@@ -443,9 +448,9 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	}
 	f.setSignedIn(true)
 	page.MustNavigate(f.url())
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 	page.MustElement("#logout").MustClick()
-	ready(t, page, view("login"))
+	readyView(t, page, "login")
 	f.mu.Lock()
 	signed := f.signedIn
 	f.mu.Unlock()
@@ -456,7 +461,7 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	loginLayout(t, page, "19px", 64)
 	f.setFooterLinks(false)
 	page.MustReload()
-	ready(t, page, view("login"))
+	readyView(t, page, "login")
 	checked(t, page, contentEqual("#revision", "Build 10d95b1"), "build revision without footer links")
 	checked(t, page, visible("#footer"), "build-only footer")
 	checked(t, page, hidden("#imprint"), "no absent imprint URL")
@@ -465,7 +470,7 @@ func checkBrowserInteractions(t *testing.T, bin, theme string) {
 	// Pressing Enter alone never sends. Explicit quick/thoughtful buttons do.
 	f.setSignedIn(true)
 	page.MustNavigate(f.url())
-	ready(t, page, view("start"))
+	readyView(t, page, "start")
 	_, before, _ := f.stats()
 	fill(page, "Erste Zeile")
 	page.Keyboard.MustType(input.Enter)
