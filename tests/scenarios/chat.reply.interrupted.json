@@ -1,0 +1,16 @@
+{
+  "id": "chat.reply.interrupted",
+  "description": "Interrupted assistant response with a recoverable partial answer and copyable diagnostic report",
+  "fixture": "interrupted-reply",
+  "checkpoints": [
+    "error"
+  ],
+  "viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ]
+}

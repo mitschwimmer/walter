@@ -4,9 +4,36 @@ const $ = id => document.getElementById(id);
 let csrf, authenticated = false, current = null, controller = null;
 let routeVersion = 0, activeHash = '', recovering = false;
 let deleteTarget = null;
+let siteBuild = '';
 
-function error(e) { $('error-message').textContent = e.message; $('error').hidden = false; }
-function clearError() { $('error').hidden = true; }
+class WalterError extends Error {
+  constructor(code, message, response = null) {
+    super(message);
+    this.code = code;
+    const id = response?.headers.get('X-Walter-Request-ID');
+    this.requestID = /^[a-f0-9]{32}$/.test(id || '') ? id : '';
+    this.build = response?.headers.get('X-Walter-Build') || '';
+    this.httpStatus = response?.status;
+  }
+}
+function error(e) {
+  const failure = e instanceof WalterError ? e : new WalterError('unexpected_error', 'Etwas ist schiefgelaufen. Bitte versuche es erneut.');
+  $('error-message').textContent = failure.message;
+  $('error-details').textContent = [
+    'Fehler: ' + failure.code,
+    'Build: ' + (failure.build || siteBuild || 'unbekannt'),
+    'Request-ID: ' + (failure.requestID || 'nicht verfügbar'),
+    'HTTP-Status: ' + (failure.httpStatus ?? 'nicht verfügbar'),
+    'Zeit (UTC): ' + new Date(Date.now()).toISOString(),
+  ].join('\n');
+  $('copy-status').textContent = '';
+  $('error').hidden = false;
+}
+function clearError() {
+  $('error').hidden = true;
+  $('error-details').textContent = '';
+  $('copy-status').textContent = '';
+}
 function signedOut() {
   authenticated = false;
   current = null;
@@ -19,11 +46,20 @@ function signedOut() {
   view('login');
 }
 async function api(path, options = {}) {
-  const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '', ...options.headers } });
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '', ...options.headers } });
+  } catch (e) {
+    if (options.signal?.aborted) throw e;
+    throw new WalterError('connection_failed', 'Walter ist gerade nicht erreichbar. Bitte versuche es erneut.');
+  }
   if (response.status === 401) signedOut();
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.error || 'Anfrage fehlgeschlagen. Bitte erneut versuchen.');
+    const failure = new WalterError('http_error', 'Anfrage fehlgeschlagen. Bitte versuche es erneut.', response);
+    // Only Walter's own controlled problem responses, never a proxy's error body.
+    if (failure.requestID && typeof body?.error === 'string') failure.message = body.error;
+    throw failure;
   }
   return response;
 }
@@ -251,6 +287,15 @@ for (const id of ['home', 'new', 'history-link']) {
   });
 }
 $('dismiss-error').onclick = clearError;
+$('copy-error').onclick = async () => {
+  const report = ['Walter-Fehlerbericht', $('error-details').textContent].join('\n');
+  try {
+    await navigator.clipboard.writeText(report);
+    if (!$('error').hidden && report.endsWith($('error-details').textContent)) $('copy-status').textContent = 'Kopiert.';
+  } catch {
+    if (!$('error').hidden) $('copy-status').textContent = 'Kopieren nicht möglich. Markiere den Fehlerbericht und kopiere ihn manuell.';
+  }
+};
 function confirmDelete(conversation) {
   if (!conversation || controller || recovering) return;
   deleteTarget = conversation;
@@ -292,9 +337,10 @@ async function reloadReply(id) {
     // Stop closes the browser stream before the server commits. Poll only the
     // persisted placeholder; a message is never automatically resubmitted.
     for (let attempt = 0; attempt < 20; attempt++) {
-      const c = await (await api(`/api/conversations/${id}`)).json();
+      const response = await api(`/api/conversations/${id}`);
+      const c = await response.json();
       if (!c.messages.some(m => m.status === 'pending')) { show(c); return; }
-      if (attempt === 19) { show(c); throw new Error('Antwort noch nicht abgeschlossen. Bitte das Gespräch später erneut öffnen.'); }
+      if (attempt === 19) { show(c); throw new WalterError('reply_pending', 'Antwort noch nicht abgeschlossen. Bitte das Gespräch später erneut öffnen.', response); }
       await new Promise(resolve => setTimeout(resolve, 250));
     }
   } finally { recovering = false; busy(false); }
@@ -313,7 +359,7 @@ $('composer').onsubmit = async e => {
   controller = new AbortController();
   busy(true);
   $('stop').focus({ preventScroll: true });
-  let accepted = false, complete = false, target, id;
+  let accepted = false, complete = false, target, id, response;
   try {
     if (!current) {
       current = await (await api('/api/conversations', { method: 'POST', body: JSON.stringify({ thinking }) })).json();
@@ -322,7 +368,7 @@ $('composer').onsubmit = async e => {
       updateComposer();
     }
     id = current.id;
-    const response = await api(`/api/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: text, thinking }), signal: controller.signal });
+    response = await api(`/api/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: text, thinking }), signal: controller.signal });
     accepted = true;
     current.thinking = thinking;
     $('content').value = '';
@@ -344,17 +390,22 @@ $('composer').onsubmit = async e => {
         if (data.phase === 'prefill') status.textContent = `Prefill: ${data.percent ?? 0}%`;
         else if (data.phase === 'thinking') status.textContent = data.tokens > 0 ? `Denkt nach … · ${data.tokens} Tokens erzeugt` : 'Denkt nach …';
       }
-      else if (name === 'error') throw new Error(data.error);
+      else if (name === 'error') throw new WalterError('reply_failed', 'Walter konnte seine Antwort nicht beenden. Bitte öffne das Gespräch erneut.', response);
       else if (name === 'done') complete = true;
     });
-    if (!complete) throw new Error('Verbindung unterbrochen. Bitte das Gespräch erneut öffnen.');
+    if (!complete) throw new WalterError('stream_interrupted', 'Die Verbindung wurde unterbrochen. Bitte öffne das Gespräch erneut.', response);
   } catch (e) {
-    if (e.name !== 'AbortError') error(e);
+    if (!controller.signal.aborted) {
+      if (e instanceof WalterError) error(e);
+      else if (accepted) error(new WalterError('stream_interrupted', 'Die Verbindung wurde unterbrochen. Bitte öffne das Gespräch erneut.', response));
+      else error(e);
+    }
     if (!accepted && authenticated) $('draft-hint').hidden = false;
   } finally {
     controller = null;
     if (accepted && authenticated) {
-      try { await reloadReply(id); } catch (e) { error(e); }
+      // Keep the original generation request ID if recovery also fails.
+      try { await reloadReply(id); } catch (e) { if ($('error').hidden) error(e); }
     } else busy(false);
     if (authenticated && !$('prompt-input').hidden) $('content').focus({ preventScroll: true });
   }
@@ -365,6 +416,7 @@ async function loadSite() {
     if (!response.ok) return;
     const site = await response.json();
     if (site.revision) {
+      siteBuild = site.revision;
       $('revision').textContent = `Build ${site.revision}`;
       $('revision').hidden = false;
       $('footer').hidden = false;
